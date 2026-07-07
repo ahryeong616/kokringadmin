@@ -1,0 +1,21 @@
+콕링 MariaDB 동기화 업데이트 파일
+
+1) 이 ZIP의 app.js, index.html, styles.css, package.json, server.js, 콕링서버_실행.bat 파일을
+   D:\kokringadmin-main\kokringadmin-main 폴더에 붙여넣고 '파일 바꾸기'를 누릅니다.
+
+2) .env.example을 열어 참고하여 기존 .env 파일 끝에 아래 2줄을 추가합니다.
+   PORT=3000
+   APP_ACCESS_KEY=본인이 정한 12자리 이상 새 비밀번호
+
+3) PowerShell에서 아래를 실행합니다.
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   npm install
+   node server.js
+
+4) PC 브라우저: http://localhost:3000
+   최초 접속 시 APP_ACCESS_KEY를 입력합니다.
+
+중요:
+- 휴대폰 접속은 PC와 휴대폰이 같은 와이파이에 있어야 합니다.
+- MariaDB 3306 포트는 외부에 열지 않습니다.
+- .env 파일은 절대 GitHub에 올리지 않습니다.

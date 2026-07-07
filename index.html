@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>콕링 재고관리</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">K</div>
+        <div>
+          <h1>콕링</h1>
+          <p>재고 · 원가 · 마진</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-button active" data-view="dashboard">대시보드</button>
+        <button class="nav-button" data-view="products">상품</button>
+        <button class="nav-button" data-view="purchases">입고</button>
+        <button class="nav-button" data-view="costs">비용</button>
+        <button class="nav-button" data-view="sales">판매</button>
+        <button class="nav-button" data-view="inventory">재고/마진</button>
+      </nav>
+      <div class="sidebar-tools">
+        <button id="exportJson" class="ghost-button">백업 내보내기</button>
+        <label class="ghost-button file-button">백업 가져오기<input id="importJson" type="file" accept="application/json"></label>
+        <button id="resetDemo" class="text-button">모든 데이터 비우기</button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Kokring Inventory</p>
+          <h2 id="viewTitle">대시보드</h2>
+        </div>
+        <div class="topbar-actions">
+          <span id="syncStatus" class="sync-status">서버 연결 준비 중…</span>
+          <button id="refreshData" class="ghost-button">새로고침</button>
+          <label class="rate-field"><span>CNY 환율</span><input id="defaultRate" type="number" min="0" step="0.01"></label>
+          <button id="saveData" class="primary-button">저장</button>
+        </div>
+      </header>
+
+      <section id="dashboard" class="view active-view">
+        <div class="metric-grid">
+          <article class="metric"><span>초기 투자 비용</span><strong id="metricInvestment">0원</strong></article>
+          <article class="metric"><span>현재 재고금액</span><strong id="metricInventoryValue">0원</strong></article>
+          <article class="metric"><span>누적 매출</span><strong id="metricRevenue">0원</strong></article>
+          <article class="metric"><span>예상 순이익</span><strong id="metricProfit">0원</strong></article>
+        </div>
+        <div class="split">
+          <section class="panel">
+            <div class="panel-header"><h3>재고 주의 상품</h3><span class="pill" id="lowStockCount">0개</span></div>
+            <div class="table-wrap"><table><thead><tr><th>상품</th><th>현재 재고</th><th>재주문 기준</th><th>예상 마진</th></tr></thead><tbody id="lowStockRows"></tbody></table></div>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><h3>최근 판매</h3><span class="pill" id="salesCount">0건</span></div>
+            <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody id="recentSalesRows"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="products" class="view">
+        <section class="panel">
+          <div class="panel-header"><h3>상품 등록</h3><span>상품코드는 자동 생성됩니다.</span></div>
+          <form id="productForm" class="form-grid">
+            <input name="name" placeholder="상품명" required>
+            <input name="option" placeholder="옵션/색상/사이즈">
+            <input name="supplier" placeholder="공급처/앱">
+            <input name="salePrice" type="number" min="0" step="1" placeholder="기본 판매가">
+            <input name="reorderLevel" type="number" min="0" step="1" placeholder="재주문 기준 수량">
+            <button class="primary-button" type="submit">상품 추가</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><h3>상품 목록</h3><span id="productCount">0개</span></div>
+          <div class="table-wrap"><table><thead><tr><th>코드</th><th>상품</th><th>공급처</th><th>판매가</th><th>재주문</th><th></th></tr></thead><tbody id="productRows"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="purchases" class="view">
+        <section class="panel">
+          <div class="panel-header"><h3>입고 등록</h3><span>위안/원화 구매를 함께 관리합니다.</span></div>
+          <form id="purchaseForm" class="form-grid">
+            <input name="date" type="date" required>
+            <select name="productId" required></select>
+            <input name="quantity" type="number" min="1" step="1" placeholder="수량" required>
+            <select name="currency"><option value="CNY">CNY</option><option value="KRW">KRW</option></select>
+            <input name="unitPrice" type="number" min="0" step="0.01" placeholder="개당 매입가" required>
+            <input name="exchangeRate" type="number" min="0" step="0.01" placeholder="환율">
+            <input name="shipping" type="number" min="0" step="1" placeholder="해외/중국 배송비 원화">
+            <input name="memo" placeholder="메모">
+            <button class="primary-button" type="submit">입고 추가</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><h3>입고 내역</h3><span id="purchaseCount">0건</span></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>수량</th><th>통화</th><th>원화 합계</th><th></th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="costs" class="view">
+        <section class="panel">
+          <div class="panel-header"><h3>부대비용 등록</h3><span>택배비, 포장비, 로고 제작비 등을 배분합니다.</span></div>
+          <form id="costForm" class="form-grid">
+            <input name="date" type="date" required>
+            <input name="name" placeholder="비용명" required>
+            <select name="category"><option>포장비</option><option>로고/스티커</option><option>택배/배송</option><option>관세/부가세</option><option>촬영/마케팅</option><option>기타</option></select>
+            <input name="amount" type="number" min="0" step="1" placeholder="금액" required>
+            <select name="allocation"><option value="allQty">전체 상품 수량 기준 배분</option><option value="allValue">전체 매입금액 기준 배분</option><option value="product">특정 상품에만 반영</option><option value="business">사업 공통비로만 기록</option></select>
+            <select name="productId"></select>
+            <input name="memo" placeholder="메모">
+            <button class="primary-button" type="submit">비용 추가</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><h3>비용 내역</h3><span id="costCount">0건</span></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>항목</th><th>구분</th><th>배분</th><th>금액</th><th></th></tr></thead><tbody id="costRows"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="sales" class="view">
+        <section class="panel">
+          <div class="panel-header"><h3>판매 등록</h3><span>주문별 실제 순이익을 계산합니다.</span></div>
+          <form id="saleForm" class="form-grid">
+            <input name="date" type="date" required>
+            <input name="orderNo" placeholder="주문번호">
+            <select name="productId" required></select>
+            <input name="quantity" type="number" min="1" step="1" placeholder="수량" required>
+            <input name="salePrice" type="number" min="0" step="1" placeholder="개당 판매가" required>
+            <input name="discount" type="number" min="0" step="1" placeholder="총 할인">
+            <input name="shippingIncome" type="number" min="0" step="1" placeholder="받은 배송비">
+            <input name="shippingCost" type="number" min="0" step="1" placeholder="실제 택배비">
+            <input name="packingCost" type="number" min="0" step="1" placeholder="포장비">
+            <input name="platformFee" type="number" min="0" step="1" placeholder="플랫폼/결제 수수료">
+            <button class="primary-button" type="submit">판매 추가</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><h3>판매 내역</h3><span id="saleCount">0건</span></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>주문</th><th>상품</th><th>수량</th><th>매출</th><th>순이익</th><th></th></tr></thead><tbody id="saleRows"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="inventory" class="view">
+        <section class="panel">
+          <div class="panel-header"><h3>현재 재고와 상품별 마진</h3><button id="downloadCsv" class="ghost-button">CSV 다운로드</button></div>
+          <div class="table-wrap"><table><thead><tr><th>상품</th><th>입고</th><th>판매</th><th>현재 재고</th><th>평균 원가</th><th>판매가</th><th>예상 마진</th><th>마진율</th><th>재고금액</th></tr></thead><tbody id="inventoryRows"></tbody></table></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
