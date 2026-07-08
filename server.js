@@ -48,6 +48,13 @@ function error(message, status = 400) {
   err.status = status;
   return err;
 }
+async function addColumnIfMissing(conn, table, column, definition) {
+  try {
+    await conn.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+  }
+}
 function broadcast() {
   const payload = `event: change\ndata: ${Date.now()}\n\n`;
   for (const client of eventClients) client.write(payload);
@@ -89,6 +96,7 @@ async function ensureSchema() {
         purchase_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         purchase_date DATE NOT NULL,
         product_id BIGINT UNSIGNED NOT NULL,
+        supplier VARCHAR(200) NULL,
         quantity INT UNSIGNED NOT NULL,
         currency ENUM('CNY','KRW') NOT NULL,
         unit_price DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -99,6 +107,7 @@ async function ensureSchema() {
         CONSTRAINT fk_purchases_product FOREIGN KEY (product_id) REFERENCES products(product_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await addColumnIfMissing(conn, 'purchases', 'supplier', 'VARCHAR(200) NULL AFTER product_id');
     await conn.query(`
       CREATE TABLE IF NOT EXISTS costs (
         cost_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -155,11 +164,12 @@ async function readState(conn) {
   }));
 
   const purchases = await conn.query(`
-    SELECT purchase_id, purchase_date AS date, product_id, quantity, currency, unit_price, exchange_rate, shipping_cost, memo
+    SELECT purchase_id, purchase_date AS date, product_id, supplier, quantity, currency, unit_price, exchange_rate, shipping_cost, memo
     FROM purchases ORDER BY purchase_id ASC
   `);
   state.purchases = purchases.map((row) => ({
     id: String(row.purchase_id), date: dateOnly(row.date), productId: String(row.product_id),
+    supplier: row.supplier || '',
     quantity: integer(row.quantity), currency: row.currency, unitPrice: number(row.unit_price),
     exchangeRate: number(row.exchange_rate), shipping: number(row.shipping_cost), memo: row.memo || '',
   }));
@@ -302,11 +312,33 @@ app.post('/api/purchases', async (req, res, next) => {
     const productId = await getActiveProduct(conn, req.body?.productId);
     const currency = req.body?.currency === 'KRW' ? 'KRW' : 'CNY';
     await conn.query(
-      `INSERT INTO purchases (purchase_date, product_id, quantity, currency, unit_price, exchange_rate, shipping_cost, memo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [date, productId, integer(req.body?.quantity), currency, number(req.body?.unitPrice),
+      `INSERT INTO purchases (purchase_date, product_id, supplier, quantity, currency, unit_price, exchange_rate, shipping_cost, memo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [date, productId, text(req.body?.supplier, 200) || null, integer(req.body?.quantity), currency, number(req.body?.unitPrice),
         currency === 'KRW' ? 1 : number(req.body?.exchangeRate, 190), number(req.body?.shipping), text(req.body?.memo) || null],
     );
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
+app.patch('/api/purchases/:id', async (req, res, next) => {
+  let conn;
+  try {
+    const date = dateOnly(req.body?.date);
+    if (!date) throw error('입고 날짜를 확인해 주세요.');
+    if (integer(req.body?.quantity) < 1) throw error('입고 수량은 1개 이상이어야 합니다.');
+    conn = await pool.getConnection();
+    const productId = await getActiveProduct(conn, req.body?.productId);
+    const currency = req.body?.currency === 'KRW' ? 'KRW' : 'CNY';
+    const result = await conn.query(
+      `UPDATE purchases
+       SET purchase_date = ?, product_id = ?, supplier = ?, quantity = ?, currency = ?, unit_price = ?, exchange_rate = ?, shipping_cost = ?, memo = ?
+       WHERE purchase_id = ?`,
+      [date, productId, text(req.body?.supplier, 200) || null, integer(req.body?.quantity), currency, number(req.body?.unitPrice),
+        currency === 'KRW' ? 1 : number(req.body?.exchangeRate, 190), number(req.body?.shipping), text(req.body?.memo) || null, req.params.id],
+    );
+    if (Number(result.affectedRows) === 0) throw error('수정할 입고 기록을 찾을 수 없습니다.', 404);
     broadcast();
     await replyState(res, conn);
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
@@ -337,6 +369,28 @@ app.post('/api/costs', async (req, res, next) => {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [date, name, text(req.body?.category, 100) || '기타', number(req.body?.amount), allocation, productId, text(req.body?.memo) || null],
     );
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
+app.patch('/api/costs/:id', async (req, res, next) => {
+  let conn;
+  try {
+    const date = dateOnly(req.body?.date);
+    const name = text(req.body?.name, 200);
+    if (!date || !name) throw error('비용 날짜와 비용명을 확인해 주세요.');
+    const allocation = ['allQty', 'allValue', 'product', 'business'].includes(req.body?.allocation)
+      ? req.body.allocation : 'business';
+    conn = await pool.getConnection();
+    const productId = allocation === 'product' ? await getActiveProduct(conn, req.body?.productId) : null;
+    const result = await conn.query(
+      `UPDATE costs
+       SET cost_date = ?, cost_name = ?, category = ?, amount = ?, allocation_type = ?, product_id = ?, memo = ?
+       WHERE cost_id = ?`,
+      [date, name, text(req.body?.category, 100) || '기타', number(req.body?.amount), allocation, productId, text(req.body?.memo) || null, req.params.id],
+    );
+    if (Number(result.affectedRows) === 0) throw error('수정할 비용 기록을 찾을 수 없습니다.', 404);
     broadcast();
     await replyState(res, conn);
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
@@ -417,8 +471,8 @@ app.put('/api/import', async (req, res, next) => {
     for (const item of purchases) {
       const date = dateOnly(item.date); if (!date) throw error('가져오기 파일의 입고 날짜를 확인해 주세요.');
       const currency = item.currency === 'KRW' ? 'KRW' : 'CNY';
-      await conn.query(`INSERT INTO purchases (purchase_date, product_id, quantity, currency, unit_price, exchange_rate, shipping_cost, memo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [date, resolveProduct(item.productId), integer(item.quantity), currency, number(item.unitPrice), currency === 'KRW' ? 1 : number(item.exchangeRate, 190), number(item.shipping), text(item.memo) || null]);
+      await conn.query(`INSERT INTO purchases (purchase_date, product_id, supplier, quantity, currency, unit_price, exchange_rate, shipping_cost, memo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [date, resolveProduct(item.productId), text(item.supplier, 200) || null, integer(item.quantity), currency, number(item.unitPrice), currency === 'KRW' ? 1 : number(item.exchangeRate, 190), number(item.shipping), text(item.memo) || null]);
     }
     for (const item of costs) {
       const date = dateOnly(item.date); if (!date || !text(item.name, 200)) throw error('가져오기 파일의 비용 정보를 확인해 주세요.');

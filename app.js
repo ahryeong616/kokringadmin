@@ -5,6 +5,8 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 let accessKey = sessionStorage.getItem('kokring_access_key') || '';
 let eventSource;
+let editingPurchaseId = '';
+let editingCostId = '';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function money(value) { return formatter.format(Math.round(Number(value) || 0)); }
@@ -12,7 +14,16 @@ function number(value) { return new Intl.NumberFormat('ko-KR').format(Math.round
 function toNum(value) { return Number(value) || 0; }
 function parseForm(form) { return Object.fromEntries(new FormData(form).entries()); }
 function productName(productId) { const product = state.products.find((item) => item.id === String(productId)); return product ? (product.option ? `${product.name} / ${product.option}` : product.name) : '삭제된 상품'; }
-function purchaseTotal(purchase) { const total = purchase.currency === 'CNY' ? purchase.quantity * purchase.unitPrice * purchase.exchangeRate : purchase.quantity * purchase.unitPrice; return total + toNum(purchase.shipping); }
+function currentCnyRate() { return toNum(state.settings.defaultRate) || 190; }
+function purchaseTotal(purchase) { const total = purchase.currency === 'CNY' ? purchase.quantity * purchase.unitPrice * currentCnyRate() : purchase.quantity * purchase.unitPrice; return total + toNum(purchase.shipping); }
+function purchaseSupplier(purchase) {
+  if (purchase.supplier) return purchase.supplier;
+  const product = state.products.find((item) => item.id === String(purchase.productId));
+  return product?.supplier || '';
+}
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
 
 function setStatus(message, kind = '') {
   let node = $('#syncStatus');
@@ -121,14 +132,83 @@ function totals() {
 }
 function emptyRow(colspan = 9, message = '아직 입력된 내용이 없습니다.') { return `<tr><td colspan="${colspan}" class="empty">${message}</td></tr>`; }
 function deleteButton(type, id) { return `<button class="danger-button" data-delete-type="${type}" data-delete-id="${id}">삭제</button>`; }
+function purchaseActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-purchase-id="${id}">수정</button>${deleteButton('purchases', id)}</div>`; }
+function costActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-cost-id="${id}">수정</button>${deleteButton('costs', id)}</div>`; }
 function fillProductSelects() {
   const options = state.products.map((product) => `<option value="${product.id}">${product.code} · ${productName(product.id)}</option>`).join('');
   $$('select[name="productId"]').forEach((select) => { const current = select.value; select.innerHTML = `<option value="">상품 선택</option>${options}`; select.value = current; });
 }
+function productOptions(selectedId = '') {
+  return `<option value="">상품 선택</option>${state.products.map((product) => `<option value="${product.id}" ${String(product.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(product.code)} · ${escapeHtml(productName(product.id))}</option>`).join('')}`;
+}
+function renderPurchaseEditRow(p) {
+  return `<tr data-purchase-edit-id="${p.id}">
+    <td><input class="inline-input compact" name="date" type="date" value="${escapeHtml(p.date)}" required></td>
+    <td><select class="inline-select" name="productId" required>${productOptions(p.productId)}</select></td>
+    <td><input class="inline-input" name="supplier" value="${escapeHtml(purchaseSupplier(p))}" placeholder="공급처"></td>
+    <td><input class="inline-input compact" name="quantity" type="number" min="1" step="1" value="${p.quantity}" required></td>
+    <td>
+      <select class="inline-select compact" name="currency"><option value="CNY" ${p.currency === 'CNY' ? 'selected' : ''}>CNY</option><option value="KRW" ${p.currency === 'KRW' ? 'selected' : ''}>KRW</option></select>
+      <input class="inline-input compact" name="unitPrice" type="number" min="0" step="0.01" value="${p.unitPrice}" required>
+    </td>
+    <td><input class="inline-input compact" name="shipping" type="number" min="0" step="1" value="${toNum(p.shipping)}"></td>
+    <td><input class="inline-input" name="memo" value="${escapeHtml(p.memo || '')}" placeholder="메모"></td>
+    <td>${money(purchaseTotal(p))}<small>CNY 기준 환율 ${number(currentCnyRate())}</small></td>
+    <td><div class="row-actions"><button class="primary-button" data-save-purchase-id="${p.id}">저장</button><button class="cancel-button" data-cancel-purchase-edit>취소</button></div></td>
+  </tr>`;
+}
+function readInlinePurchaseRow(row) {
+  return Object.fromEntries([...row.querySelectorAll('input[name], select[name]')].map((field) => [field.name, field.value]));
+}
+function costCategoryOptions(selected = '') {
+  return ['포장비', '로고/스티커', '택배/배송', '관세/부가세', '촬영/마케팅', '기타']
+    .map((label) => `<option ${label === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`)
+    .join('');
+}
+function costAllocationOptions(selected = '') {
+  const labels = {
+    allQty: '전체 상품 수량 기준 배분',
+    allValue: '전체 매입금액 기준 배분',
+    product: '특정 상품에만 반영',
+    business: '사업 공통비로만 기록',
+  };
+  return Object.entries(labels)
+    .map(([value, label]) => `<option value="${value}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`)
+    .join('');
+}
+function renderCostEditRow(c) {
+  return `<tr data-cost-edit-id="${c.id}">
+    <td><input class="inline-input compact" name="date" type="date" value="${escapeHtml(c.date)}" required></td>
+    <td><input class="inline-input" name="name" value="${escapeHtml(c.name)}" placeholder="비용명" required><input class="inline-input" name="memo" value="${escapeHtml(c.memo || '')}" placeholder="메모"></td>
+    <td><select class="inline-select" name="category">${costCategoryOptions(c.category)}</select></td>
+    <td>
+      <select class="inline-select" name="allocation">${costAllocationOptions(c.allocation)}</select>
+      <select class="inline-select" name="productId">${productOptions(c.productId)}</select>
+    </td>
+    <td><input class="inline-input compact" name="amount" type="number" min="0" step="1" value="${toNum(c.amount)}" required></td>
+    <td><div class="row-actions"><button class="primary-button" data-save-cost-id="${c.id}">저장</button><button class="cancel-button" data-cancel-cost-edit>취소</button></div></td>
+  </tr>`;
+}
+function readInlineCostRow(row) {
+  return Object.fromEntries([...row.querySelectorAll('input[name], select[name]')].map((field) => [field.name, field.value]));
+}
 function renderDashboard() { const sum = totals(); $('#metricInvestment').textContent = money(sum.investment); $('#metricInventoryValue').textContent = money(sum.inventoryValue); $('#metricRevenue').textContent = money(sum.revenue); $('#metricProfit').textContent = money(sum.profit); }
 function renderProducts() { $('#productCount').textContent = `${state.products.length}개`; $('#productRows').innerHTML = state.products.length ? state.products.map((p) => `<tr><td>${p.code}</td><td><strong>${p.name}</strong><small>${p.option || '-'}</small></td><td>${p.supplier || '-'}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${deleteButton('products', p.id)}</td></tr>`).join('') : emptyRow(6); }
-function renderPurchases() { $('#purchaseCount').textContent = `${state.purchases.length}건`; $('#purchaseRows').innerHTML = state.purchases.length ? state.purchases.map((p) => `<tr><td>${dateFormatter.format(new Date(p.date))}</td><td>${productName(p.productId)}</td><td>${number(p.quantity)}개</td><td>${p.currency} ${number(p.unitPrice)}</td><td>${money(purchaseTotal(p))}</td><td>${deleteButton('purchases', p.id)}</td></tr>`).join('') : emptyRow(6); }
-function renderCosts() { const labels = { allQty: '수량 기준', allValue: '매입금액 기준', product: '특정 상품', business: '공통비' }; $('#costCount').textContent = `${state.costs.length}건`; $('#costRows').innerHTML = state.costs.length ? state.costs.map((c) => `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${c.name}</strong><small>${c.memo || '-'}</small></td><td>${c.category}</td><td>${labels[c.allocation]}${c.productId ? ` · ${productName(c.productId)}` : ''}</td><td>${money(c.amount)}</td><td>${deleteButton('costs', c.id)}</td></tr>`).join('') : emptyRow(6); }
+function renderPurchases() {
+  $('#purchaseCount').textContent = `${state.purchases.length}건`;
+  $('#purchaseRows').innerHTML = state.purchases.length ? state.purchases.map((p) => {
+    if (String(p.id) === String(editingPurchaseId)) return renderPurchaseEditRow(p);
+    return `<tr><td>${dateFormatter.format(new Date(p.date))}</td><td>${productName(p.productId)}</td><td>${purchaseSupplier(p) || '-'}</td><td>${number(p.quantity)}개</td><td>${p.currency} ${number(p.unitPrice)}</td><td>${money(p.shipping)}</td><td>${p.memo || '-'}</td><td>${money(purchaseTotal(p))}</td><td>${purchaseActionButtons(p.id)}</td></tr>`;
+  }).join('') : emptyRow(9);
+}
+function renderCosts() {
+  const labels = { allQty: '수량 기준', allValue: '매입금액 기준', product: '특정 상품', business: '공통비' };
+  $('#costCount').textContent = `${state.costs.length}건`;
+  $('#costRows').innerHTML = state.costs.length ? state.costs.map((c) => {
+    if (String(c.id) === String(editingCostId)) return renderCostEditRow(c);
+    return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${c.name}</strong><small>${c.memo || '-'}</small></td><td>${c.category}</td><td>${labels[c.allocation]}${c.productId ? ` · ${productName(c.productId)}` : ''}</td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
+  }).join('') : emptyRow(6);
+}
 function renderSales() { const { statsMap } = totals(); $('#saleCount').textContent = `${state.sales.length}건`; $('#salesCount').textContent = `${state.sales.length}건`; $('#saleRows').innerHTML = state.sales.length ? state.sales.map((s) => { const r = saleResult(s, statsMap); return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${s.orderNo || '-'}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.netRevenue)}</td><td>${money(r.profit)}</td><td>${deleteButton('sales', s.id)}</td></tr>`; }).join('') : emptyRow(7); const recent = [...state.sales].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5); $('#recentSalesRows').innerHTML = recent.length ? recent.map((s) => { const r = saleResult(s, statsMap); return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.profit)}</td></tr>`; }).join('') : emptyRow(4); }
 function renderInventory() { const { stats } = totals(); $('#inventoryRows').innerHTML = stats.length ? stats.map((i) => `<tr><td><strong>${i.product.name}</strong><small>${i.product.code} · ${i.product.option || '-'}</small></td><td>${number(i.purchasedQty)}개</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td>${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`).join('') : emptyRow(9); const low = stats.filter((item) => item.stock <= item.product.reorderLevel); $('#lowStockCount').textContent = `${low.length}개`; $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr><td>${i.product.name}</td><td>${number(i.stock)}개</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.'); }
 function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderInventory(); }
@@ -141,6 +221,57 @@ function download(filename, body, type) { const blob = new Blob([body], { type }
 function bindActions() {
   $('#saveData').addEventListener('click', async () => { try { applyState(await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ defaultRate: toNum($('#defaultRate').value) || 190 }) })); } catch (err) { alert(err.message); } });
   $('#defaultRate').addEventListener('change', async () => { try { applyState(await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ defaultRate: toNum($('#defaultRate').value) || 190 }) })); } catch (err) { alert(err.message); } });
+  $('#refreshData').addEventListener('click', () => loadRemote(true));
+  document.body.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-edit-purchase-id]');
+    if (!editButton) return;
+    editingPurchaseId = editButton.dataset.editPurchaseId;
+    renderPurchases();
+  });
+  document.body.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-cancel-purchase-edit]')) return;
+    editingPurchaseId = '';
+    renderPurchases();
+  });
+  document.body.addEventListener('click', async (event) => {
+    const saveButton = event.target.closest('[data-save-purchase-id]');
+    if (!saveButton) return;
+    const row = saveButton.closest('[data-purchase-edit-id]');
+    if (!row) return;
+    const body = readInlinePurchaseRow(row);
+    try {
+      const nextState = await api(`/api/purchases/${saveButton.dataset.savePurchaseId}`, { method: 'PATCH', body: JSON.stringify(body) });
+      editingPurchaseId = '';
+      applyState(nextState);
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+  document.body.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-edit-cost-id]');
+    if (!editButton) return;
+    editingCostId = editButton.dataset.editCostId;
+    renderCosts();
+  });
+  document.body.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-cancel-cost-edit]')) return;
+    editingCostId = '';
+    renderCosts();
+  });
+  document.body.addEventListener('click', async (event) => {
+    const saveButton = event.target.closest('[data-save-cost-id]');
+    if (!saveButton) return;
+    const row = saveButton.closest('[data-cost-edit-id]');
+    if (!row) return;
+    const body = readInlineCostRow(row);
+    try {
+      const nextState = await api(`/api/costs/${saveButton.dataset.saveCostId}`, { method: 'PATCH', body: JSON.stringify(body) });
+      editingCostId = '';
+      applyState(nextState);
+    } catch (err) {
+      alert(err.message);
+    }
+  });
   document.body.addEventListener('click', async (event) => { const button = event.target.closest('[data-delete-type]'); if (!button) return; if (!confirm('이 기록을 삭제할까요?')) return; try { applyState(await api(`/api/${button.dataset.deleteType}/${button.dataset.deleteId}`, { method: 'DELETE' })); } catch (err) { alert(err.message); } });
   $('#resetDemo').addEventListener('click', async () => { if (!confirm('현재 클라우드 데이터를 샘플 데이터로 전부 바꿀까요?')) return; try { applyState(await api('/api/import', { method: 'PUT', body: JSON.stringify(seedDemo()) })); } catch (err) { alert(err.message); } });
   $('#exportJson').addEventListener('click', () => download(`kokring-inventory-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));

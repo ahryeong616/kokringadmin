@@ -88,10 +88,10 @@
           <form id="purchaseForm" class="form-grid">
             <input name="date" type="date" required>
             <select name="productId" required></select>
+            <input name="supplier" placeholder="공급처/앱">
             <input name="quantity" type="number" min="1" step="1" placeholder="수량" required>
             <select name="currency"><option value="CNY">CNY</option><option value="KRW">KRW</option></select>
             <input name="unitPrice" type="number" min="0" step="0.01" placeholder="개당 매입가" required>
-            <input name="exchangeRate" type="number" min="0" step="0.01" placeholder="환율">
             <input name="shipping" type="number" min="0" step="1" placeholder="해외/중국 배송비 원화">
             <input name="memo" placeholder="메모">
             <button class="primary-button" type="submit">입고 추가</button>
@@ -99,7 +99,7 @@
         </section>
         <section class="panel">
           <div class="panel-header"><h3>입고 내역</h3><span id="purchaseCount">0건</span></div>
-          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>수량</th><th>통화</th><th>원화 합계</th><th></th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>공급처</th><th>수량</th><th>통화/매입가</th><th>배송비</th><th>메모</th><th>원화 합계</th><th></th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
         </section>
       </section>
 
