@@ -185,6 +185,17 @@ async function ensureSchema() {
         CONSTRAINT fk_adjustments_product FOREIGN KEY (product_id) REFERENCES products(product_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await addColumnIfMissing(conn, 'products', 'product_type', "VARCHAR(20) NOT NULL DEFAULT 'single'");
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS product_components (
+        component_row_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        set_product_id BIGINT UNSIGNED NOT NULL,
+        component_product_id BIGINT UNSIGNED NOT NULL,
+        quantity INT UNSIGNED NOT NULL DEFAULT 1,
+        CONSTRAINT fk_pc_set FOREIGN KEY (set_product_id) REFERENCES products(product_id) ON DELETE CASCADE,
+        CONSTRAINT fk_pc_component FOREIGN KEY (component_product_id) REFERENCES products(product_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
     await conn.query(
       'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_key = setting_key',
       ['defaultRate', 190],
@@ -200,13 +211,23 @@ async function readState(conn) {
   if (settings.length) state.settings.defaultRate = number(settings[0].setting_value, 190);
 
   const products = await conn.query(`
-    SELECT product_id, product_code, product_name, product_option, supplier, base_sale_price, reorder_level
+    SELECT product_id, product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type
     FROM products WHERE is_active = 1 ORDER BY product_id ASC
   `);
+  const componentRows = await conn.query(
+    'SELECT set_product_id, component_product_id, quantity FROM product_components ORDER BY component_row_id ASC',
+  );
+  const componentsBySet = {};
+  componentRows.forEach((row) => {
+    const key = String(row.set_product_id);
+    (componentsBySet[key] = componentsBySet[key] || []).push({ productId: String(row.component_product_id), quantity: integer(row.quantity) || 1 });
+  });
   state.products = products.map((row) => ({
     id: String(row.product_id), code: row.product_code, name: row.product_name,
     option: row.product_option || '', supplier: row.supplier || '',
     salePrice: number(row.base_sale_price), reorderLevel: integer(row.reorder_level),
+    type: row.product_type === 'set' ? 'set' : 'single',
+    components: componentsBySet[String(row.product_id)] || [],
   }));
 
   const purchases = await conn.query(`
@@ -260,6 +281,28 @@ async function getActiveProduct(conn, productId) {
   const rows = await conn.query('SELECT product_id FROM products WHERE product_id = ? AND is_active = 1', [productId]);
   if (!rows.length) throw error('선택한 상품을 찾을 수 없습니다.', 404);
   return String(rows[0].product_id);
+}
+
+async function getProductType(conn, productId) {
+  const rows = await conn.query('SELECT product_type FROM products WHERE product_id = ?', [productId]);
+  return rows.length && rows[0].product_type === 'set' ? 'set' : 'single';
+}
+
+async function saveComponents(conn, setId, components) {
+  await conn.query('DELETE FROM product_components WHERE set_product_id = ?', [setId]);
+  const list = Array.isArray(components) ? components : [];
+  let count = 0;
+  for (const item of list) {
+    const qty = integer(item?.quantity) || 1;
+    if (qty < 1) continue;
+    let compId;
+    try { compId = await getActiveProduct(conn, item?.productId); } catch (_) { continue; }
+    if (String(compId) === String(setId)) continue;
+    if (await getProductType(conn, compId) === 'set') throw error('세트 안에 다른 세트를 넣을 수 없습니다. 단일 상품만 부품으로 선택해 주세요.');
+    await conn.query('INSERT INTO product_components (set_product_id, component_product_id, quantity) VALUES (?, ?, ?)', [setId, compId, qty]);
+    count += 1;
+  }
+  return count;
 }
 
 async function nextProductCode(conn) {
@@ -328,17 +371,28 @@ app.post('/api/products', async (req, res, next) => {
   try {
     const name = text(req.body?.name, 200);
     if (!name) throw error('상품명을 입력해 주세요.');
+    const isSet = req.body?.type === 'set';
+    if (isSet && !(Array.isArray(req.body?.components) && req.body.components.length)) throw error('세트 상품은 부품을 1개 이상 지정해 주세요.');
     conn = await pool.getConnection();
+    await conn.beginTransaction();
     const code = await nextProductCode(conn);
-    await conn.query(
-      `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+    const result = await conn.query(
+      `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [code, name, text(req.body?.option, 200) || null, text(req.body?.supplier, 200) || null,
-        number(req.body?.salePrice), integer(req.body?.reorderLevel)],
+        number(req.body?.salePrice), integer(req.body?.reorderLevel), isSet ? 'set' : 'single'],
     );
+    if (isSet) {
+      const saved = await saveComponents(conn, String(result.insertId), req.body.components);
+      if (!saved) throw error('세트 부품을 올바르게 지정해 주세요.');
+    }
+    await conn.commit();
     broadcast();
     await replyState(res, conn);
-  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+  } catch (err) {
+    if (conn) { try { await conn.rollback(); } catch (_) {} }
+    next(err);
+  } finally { if (conn) conn.release(); }
 });
 
 app.patch('/api/products/:id', async (req, res, next) => {
@@ -347,18 +401,33 @@ app.patch('/api/products/:id', async (req, res, next) => {
     const name = text(req.body?.name, 200);
     if (!name) throw error('상품명을 입력해 주세요.');
     conn = await pool.getConnection();
+    await conn.beginTransaction();
     const productId = await getActiveProduct(conn, req.params.id);
-    const result = await conn.query(
+    await conn.query(
       `UPDATE products
        SET product_name = ?, product_option = ?, supplier = ?, base_sale_price = ?, reorder_level = ?
        WHERE product_id = ?`,
       [name, text(req.body?.option, 200) || null, text(req.body?.supplier, 200) || null,
         number(req.body?.salePrice), integer(req.body?.reorderLevel), productId],
     );
-    if (Number(result.affectedRows) === 0) throw error('수정할 상품을 찾을 수 없습니다.', 404);
+    if (req.body?.type !== undefined) {
+      const isSet = req.body.type === 'set';
+      await conn.query('UPDATE products SET product_type = ? WHERE product_id = ?', [isSet ? 'set' : 'single', productId]);
+      if (isSet) {
+        if (!(Array.isArray(req.body?.components) && req.body.components.length)) throw error('세트 상품은 부품을 1개 이상 지정해 주세요.');
+        const saved = await saveComponents(conn, productId, req.body.components);
+        if (!saved) throw error('세트 부품을 올바르게 지정해 주세요.');
+      } else {
+        await conn.query('DELETE FROM product_components WHERE set_product_id = ?', [productId]);
+      }
+    }
+    await conn.commit();
     broadcast();
     await replyState(res, conn);
-  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+  } catch (err) {
+    if (conn) { try { await conn.rollback(); } catch (_) {} }
+    next(err);
+  } finally { if (conn) conn.release(); }
 });
 
 app.delete('/api/products/:id', async (req, res, next) => {
@@ -373,6 +442,8 @@ app.delete('/api/products/:id', async (req, res, next) => {
         (SELECT COUNT(*) FROM sales WHERE product_id = ?) AS count
     `, [productId, productId, productId]);
     if (Number(related[0].count) > 0) throw error('입고·비용·판매 기록이 있는 상품은 삭제할 수 없습니다.', 409);
+    const usedInSet = await conn.query('SELECT COUNT(*) AS count FROM product_components WHERE component_product_id = ?', [productId]);
+    if (Number(usedInSet[0].count) > 0) throw error('세트 완제품의 부품으로 사용 중인 상품입니다. 먼저 세트 구성에서 제외해 주세요.', 409);
     await conn.query('DELETE FROM products WHERE product_id = ?', [productId]);
     broadcast();
     await replyState(res, conn);
@@ -577,6 +648,7 @@ app.put('/api/import', async (req, res, next) => {
     const adjustments = Array.isArray(incoming.adjustments) ? incoming.adjustments : [];
     conn = await pool.getConnection();
     await conn.beginTransaction();
+    await conn.query('DELETE FROM product_components');
     await conn.query('DELETE FROM adjustments');
     await conn.query('DELETE FROM sales');
     await conn.query('DELETE FROM purchases');
@@ -590,11 +662,22 @@ app.put('/api/import', async (req, res, next) => {
       if (!name) throw error('가져오기 파일에 상품명이 비어 있는 항목이 있습니다.');
       const code = text(product.code, 30) || await nextProductCode(conn);
       const result = await conn.query(
-        `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [code, name, text(product.option, 200) || null, text(product.supplier, 200) || null, number(product.salePrice), integer(product.reorderLevel)],
+        `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [code, name, text(product.option, 200) || null, text(product.supplier, 200) || null, number(product.salePrice), integer(product.reorderLevel), product.type === 'set' ? 'set' : 'single'],
       );
       idMap.set(String(product.id), String(result.insertId));
+    }
+    for (const product of products) {
+      if (product.type !== 'set') continue;
+      const setId = idMap.get(String(product.id));
+      if (!setId) continue;
+      for (const comp of (Array.isArray(product.components) ? product.components : [])) {
+        const compId = idMap.get(String(comp.productId));
+        const qty = integer(comp.quantity) || 1;
+        if (!compId || qty < 1) continue;
+        await conn.query('INSERT INTO product_components (set_product_id, component_product_id, quantity) VALUES (?, ?, ?)', [setId, compId, qty]);
+      }
     }
     const resolveProduct = (id) => {
       const mapped = idMap.get(String(id));

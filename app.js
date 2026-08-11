@@ -107,19 +107,48 @@ function allocatedCostsByProduct() {
 }
 function inventoryStats() {
   const allocated = allocatedCostsByProduct();
-  return state.products.map((product) => {
+  const productById = Object.fromEntries(state.products.map((p) => [p.id, p]));
+  // 세트 판매가 소비한 부품 수량 집계
+  const componentUsage = {};
+  state.sales.forEach((sale) => {
+    const prod = productById[sale.productId];
+    if (prod && prod.type === 'set') {
+      (prod.components || []).forEach((c) => {
+        componentUsage[c.productId] = (componentUsage[c.productId] || 0) + toNum(c.quantity) * sale.quantity;
+      });
+    }
+  });
+  const directSoldOf = (id) => state.sales.filter((item) => item.productId === id).reduce((sum, item) => sum + item.quantity, 0);
+  const adjustOf = (id) => state.adjustments.filter((item) => item.productId === id).reduce((sum, item) => sum + toNum(item.delta), 0);
+  const statMap = {};
+  // 1단계: 단일 상품
+  state.products.filter((p) => p.type !== 'set').forEach((product) => {
     const purchases = state.purchases.filter((item) => item.productId === product.id);
-    const sales = state.sales.filter((item) => item.productId === product.id);
     const purchasedQty = purchases.reduce((sum, item) => sum + item.quantity, 0);
-    const soldQty = sales.reduce((sum, item) => sum + item.quantity, 0);
-    const adjustQty = state.adjustments.filter((item) => item.productId === product.id).reduce((sum, item) => sum + toNum(item.delta), 0);
     const purchaseValue = purchases.reduce((sum, item) => sum + purchaseTotal(item), 0);
+    const usedInSets = componentUsage[product.id] || 0;
+    const soldQty = directSoldOf(product.id) + usedInSets;
+    const adjustQty = adjustOf(product.id);
     const avgCost = purchasedQty > 0 ? (purchaseValue + (allocated[product.id] || 0)) / purchasedQty : 0;
     const stock = purchasedQty - soldQty + adjustQty;
     const salePrice = toNum(product.salePrice);
     const margin = salePrice - avgCost;
-    return { product, purchasedQty, soldQty, adjustQty, stock, avgCost, salePrice, margin, marginRate: salePrice > 0 ? margin / salePrice : 0, inventoryValue: Math.max(stock, 0) * avgCost };
+    statMap[product.id] = { product, isSet: false, purchasedQty, soldQty, usedInSets, adjustQty, stock, avgCost, salePrice, margin, marginRate: salePrice > 0 ? margin / salePrice : 0, inventoryValue: Math.max(stock, 0) * avgCost };
   });
+  // 2단계: 세트(완제품) — 부품 원가 합산 & 만들 수 있는 수량
+  state.products.filter((p) => p.type === 'set').forEach((product) => {
+    const comps = (product.components || []).map((c) => ({ qty: toNum(c.quantity) || 1, stat: statMap[c.productId] })).filter((x) => x.stat);
+    const avgCost = comps.reduce((sum, x) => sum + x.stat.avgCost * x.qty, 0);
+    let buildable = comps.length ? Infinity : 0;
+    comps.forEach((x) => { buildable = Math.min(buildable, Math.floor(Math.max(x.stat.stock, 0) / x.qty)); });
+    if (!Number.isFinite(buildable)) buildable = 0;
+    const adjustQty = adjustOf(product.id);
+    const stock = buildable + adjustQty;
+    const salePrice = toNum(product.salePrice);
+    const margin = salePrice - avgCost;
+    statMap[product.id] = { product, isSet: true, purchasedQty: 0, soldQty: directSoldOf(product.id), usedInSets: 0, adjustQty, stock, buildable, avgCost, salePrice, margin, marginRate: salePrice > 0 ? margin / salePrice : 0, inventoryValue: 0 };
+  });
+  return state.products.map((p) => statMap[p.id]).filter(Boolean);
 }
 function saleResult(sale, statsMap) {
   const stat = statsMap[sale.productId] || { avgCost: 0 };
@@ -142,17 +171,24 @@ function emptyRow(colspan = 9, message = '아직 입력된 내용이 없습니�
 function deleteButton(type, id) { return `<button class="danger-button" data-delete-type="${type}" data-delete-id="${id}">삭제</button>`; }
 function purchaseActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-purchase-id="${id}">수정</button>${deleteButton('purchases', id)}</div>`; }
 function costActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-cost-id="${id}">수정</button>${deleteButton('costs', id)}</div>`; }
+function singleProducts() { return state.products.filter((p) => p.type !== 'set'); }
+function productLabel(p) { return `${p.code} · ${productName(p.id)}${p.type === 'set' ? ' (세트)' : ''}`; }
+function optionsFrom(list, selectedId, placeholder) {
+  return `<option value="">${placeholder}</option>${list.map((p) => `<option value="${p.id}" ${String(p.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(productLabel(p))}</option>`).join('')}`;
+}
 function fillProductSelects() {
-  const options = state.products.map((product) => `<option value="${product.id}">${product.code} · ${productName(product.id)}</option>`).join('');
-  $$('select[name="productId"]').forEach((select) => { const current = select.value; select.innerHTML = `<option value="">상품 선택</option>${options}`; select.value = current; });
+  $$('select[name="productId"]').forEach((select) => {
+    const includeSets = !!select.closest('#saleForm'); // 판매만 세트 포함, 입고·비용·조정은 단일만
+    const current = select.value;
+    select.innerHTML = optionsFrom(includeSets ? state.products : singleProducts(), current, '상품 선택');
+    select.value = current;
+  });
 }
-function productOptions(selectedId = '') {
-  return `<option value="">상품 선택</option>${state.products.map((product) => `<option value="${product.id}" ${String(product.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(product.code)} · ${escapeHtml(productName(product.id))}</option>`).join('')}`;
-}
+function productOptions(selectedId = '', list = state.products) { return optionsFrom(list, selectedId, '상품 선택'); }
 function renderPurchaseEditRow(p) {
   return `<tr data-purchase-edit-id="${p.id}">
     <td><input class="inline-input compact" name="date" type="date" value="${escapeHtml(p.date)}" required></td>
-    <td><select class="inline-select" name="productId" required>${productOptions(p.productId)}</select></td>
+    <td><select class="inline-select" name="productId" required>${productOptions(p.productId, singleProducts())}</select></td>
     <td><input class="inline-input" name="supplier" value="${escapeHtml(purchaseSupplier(p))}" placeholder="공급처"></td>
     <td><input class="inline-input compact" name="quantity" type="number" min="1" step="1" value="${p.quantity}" required></td>
     <td>
@@ -191,7 +227,7 @@ function renderCostEditRow(c) {
     <td><select class="inline-select" name="category">${costCategoryOptions(c.category)}</select></td>
     <td>
       <select class="inline-select" name="allocation">${costAllocationOptions(c.allocation)}</select>
-      <select class="inline-select" name="productId">${productOptions(c.productId)}</select>
+      <select class="inline-select" name="productId">${productOptions(c.productId, singleProducts())}</select>
     </td>
     <td><input class="inline-input compact" name="amount" type="number" min="0" step="1" value="${toNum(c.amount)}" required></td>
     <td><div class="row-actions"><button class="primary-button" data-save-cost-id="${c.id}">저장</button><button class="cancel-button" data-cancel-cost-edit>취소</button></div></td>
@@ -200,7 +236,13 @@ function renderCostEditRow(c) {
 function readInlineCostRow(row) {
   return Object.fromEntries([...row.querySelectorAll('input[name], select[name]')].map((field) => [field.name, field.value]));
 }
-function productActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-product-id="${id}">수정</button>${deleteButton('products', id)}</div>`; }
+function productActionButtons(product) {
+  const editAttr = product.type === 'set' ? `data-edit-set-id="${product.id}"` : `data-edit-product-id="${product.id}"`;
+  return `<div class="row-actions"><button class="edit-button" ${editAttr}>수정</button>${deleteButton('products', product.id)}</div>`;
+}
+function setComposition(product) {
+  return (product.components || []).map((c) => `${productName(c.productId)}${toNum(c.quantity) > 1 ? ` ×${toNum(c.quantity)}` : ''}`).join(' + ');
+}
 function saleActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-sale-id="${id}">수정</button>${deleteButton('sales', id)}</div>`; }
 function renderProductEditRow(p) {
   return `<tr data-product-edit-id="${p.id}">
@@ -214,6 +256,74 @@ function renderProductEditRow(p) {
 }
 function readInlineProductRow(row) {
   return Object.fromEntries([...row.querySelectorAll('input[name], select[name]')].map((field) => [field.name, field.value]));
+}
+let editingProductFormId = '';
+function componentRowHtml(selectedId = '', qty = 1) {
+  return `<div class="component-row"><select class="component-product">${optionsFrom(singleProducts(), selectedId, '부품 선택')}</select><input class="component-qty" type="number" min="1" step="1" value="${toNum(qty) || 1}" aria-label="수량"><button type="button" class="component-remove danger-button">삭제</button></div>`;
+}
+function addComponentRow(selectedId = '', qty = 1) { $('#componentRows')?.insertAdjacentHTML('beforeend', componentRowHtml(selectedId, qty)); }
+function readComponents() {
+  return [...$$('#componentRows .component-row')].map((row) => ({
+    productId: row.querySelector('.component-product')?.value || '',
+    quantity: toNum(row.querySelector('.component-qty')?.value) || 1,
+  })).filter((c) => c.productId);
+}
+function toggleComponentEditor() {
+  const isSet = $('#productType')?.value === 'set';
+  if ($('#componentEditor')) $('#componentEditor').hidden = !isSet;
+  if (isSet && $('#componentRows') && !$('#componentRows').children.length) addComponentRow();
+}
+function refreshComponentSelects() {
+  $$('#componentRows .component-row .component-product').forEach((sel) => { const cur = sel.value; sel.innerHTML = optionsFrom(singleProducts(), cur, '부품 선택'); sel.value = cur; });
+}
+function resetProductForm() {
+  editingProductFormId = '';
+  $('#productForm')?.reset();
+  if ($('#productType')) $('#productType').value = 'single';
+  if ($('#componentRows')) $('#componentRows').innerHTML = '';
+  if ($('#componentEditor')) $('#componentEditor').hidden = true;
+  if ($('#productSubmit')) $('#productSubmit').textContent = '상품 추가';
+  if ($('#productFormTitle')) $('#productFormTitle').textContent = '상품 등록';
+  if ($('#cancelProductEdit')) $('#cancelProductEdit').hidden = true;
+}
+function loadSetIntoForm(product) {
+  editingProductFormId = product.id;
+  editingProductId = '';
+  const form = $('#productForm');
+  if ($('#productType')) $('#productType').value = 'set';
+  if (form) {
+    form.querySelector('[name="name"]').value = product.name || '';
+    form.querySelector('[name="option"]').value = product.option || '';
+    form.querySelector('[name="supplier"]').value = product.supplier || '';
+    form.querySelector('[name="salePrice"]').value = toNum(product.salePrice) || '';
+    form.querySelector('[name="reorderLevel"]').value = toNum(product.reorderLevel) || '';
+  }
+  if ($('#componentRows')) $('#componentRows').innerHTML = '';
+  (product.components || []).forEach((c) => addComponentRow(c.productId, c.quantity));
+  if (!(product.components || []).length) addComponentRow();
+  if ($('#componentEditor')) $('#componentEditor').hidden = false;
+  if ($('#productSubmit')) $('#productSubmit').textContent = '세트 수정 저장';
+  if ($('#productFormTitle')) $('#productFormTitle').textContent = '세트 수정';
+  if ($('#cancelProductEdit')) $('#cancelProductEdit').hidden = false;
+  $('#productType')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+async function submitProductForm(event) {
+  event.preventDefault();
+  const f = parseForm(event.target);
+  const isSet = f.type === 'set';
+  const body = { name: f.name, option: f.option, supplier: f.supplier, salePrice: toNum(f.salePrice), reorderLevel: toNum(f.reorderLevel), type: isSet ? 'set' : 'single' };
+  if (isSet) {
+    body.components = readComponents();
+    if (!body.components.length) { alert('세트 부품을 1개 이상 지정해 주세요.'); return; }
+  }
+  try {
+    const editId = editingProductFormId;
+    const next = editId
+      ? await api(`/api/products/${editId}`, { method: 'PATCH', body: JSON.stringify(body) })
+      : await api('/api/products', { method: 'POST', body: JSON.stringify(body) });
+    resetProductForm();
+    applyState(next);
+  } catch (err) { alert(err.message); }
 }
 function renderSaleEditRow(s) {
   return `<tr data-sale-edit-id="${s.id}">
@@ -254,11 +364,11 @@ function saleMatchesFilter(sale) {
   if (saleFilters.q && !(sale.orderNo || '').toLowerCase().includes(saleFilters.q.toLowerCase())) return false;
   return true;
 }
-function productFilterOptions(current) {
-  return `<option value="">전체 상품</option>${state.products.map((p) => `<option value="${p.id}" ${String(p.id) === String(current) ? 'selected' : ''}>${escapeHtml(p.code)} · ${escapeHtml(productName(p.id))}</option>`).join('')}`;
+function productFilterOptions(current, list = state.products) {
+  return `<option value="">전체 상품</option>${list.map((p) => `<option value="${p.id}" ${String(p.id) === String(current) ? 'selected' : ''}>${escapeHtml(productLabel(p))}</option>`).join('')}`;
 }
 function fillSaleFilterProduct() { const el = $('#saleFilterProduct'); if (el) el.innerHTML = productFilterOptions(saleFilters.productId); }
-function fillPurchaseFilterProduct() { const el = $('#purchaseFilterProduct'); if (el) el.innerHTML = productFilterOptions(purchaseFilters.productId); }
+function fillPurchaseFilterProduct() { const el = $('#purchaseFilterProduct'); if (el) el.innerHTML = productFilterOptions(purchaseFilters.productId, singleProducts()); }
 
 function periodRange(period) {
   const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
@@ -376,8 +486,10 @@ function renderProducts() {
   const list = state.products.filter((p) => productMatchesFilter(p) || String(p.id) === String(editingProductId));
   $('#productCount').textContent = list.length !== state.products.length ? `${list.length}개 / 전체 ${state.products.length}개` : `${state.products.length}개`;
   $('#productRows').innerHTML = list.length ? list.map((p) => {
-    if (String(p.id) === String(editingProductId)) return renderProductEditRow(p);
-    return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(p.option || '-')}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p.id)}</td></tr>`;
+    if (String(p.id) === String(editingProductId) && p.type !== 'set') return renderProductEditRow(p);
+    const sub = p.type === 'set' ? (escapeHtml(setComposition(p)) || '<span class="empty-hint">부품 미지정</span>') : escapeHtml(p.option || '-');
+    const tag = p.type === 'set' ? ' <span class="mini-tag">세트</span>' : '';
+    return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}${tag}</strong><small>${sub}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p)}</td></tr>`;
   }).join('') : emptyRow(6, state.products.length ? '검색 결과가 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderPurchases() {
@@ -415,18 +527,22 @@ function renderSales() {
 }
 function renderInventory() {
   const { stats } = totals();
-  $('#inventoryRows').innerHTML = stats.length ? stats.map((i) => `<tr class="${stockRowClass(i)}"><td><strong>${escapeHtml(i.product.name)}</strong><small>${escapeHtml(i.product.code)} · ${escapeHtml(i.product.option || '-')}</small></td><td>${number(i.purchasedQty)}개</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`).join('') : emptyRow(9);
+  $('#inventoryRows').innerHTML = stats.length ? stats.map((i) => {
+    const tag = i.isSet ? ' <span class="mini-tag">세트</span>' : '';
+    const sub = i.isSet ? `${escapeHtml(i.product.code)} · ${escapeHtml(setComposition(i.product) || '부품 미지정')}` : `${escapeHtml(i.product.code)} · ${escapeHtml(i.product.option || '-')}`;
+    return `<tr class="${stockRowClass(i)}"><td><strong>${escapeHtml(i.product.name)}${tag}</strong><small>${sub}</small></td><td>${i.isSet ? '-' : `${number(i.purchasedQty)}개`}</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`;
+  }).join('') : emptyRow(9);
   const low = stats.filter((item) => item.stock <= toNum(item.product.reorderLevel));
   $('#lowStockCount').textContent = `${low.length}개`;
   $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr class="${stockRowClass(i)}"><td>${escapeHtml(i.product.name)}</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.');
   const badge = $('#navLowStock');
   if (badge) { badge.textContent = low.length; badge.hidden = low.length === 0; }
 }
-function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderAdjustments(); renderInventory(); updateSalePreview(); }
+function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); refreshComponentSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderAdjustments(); renderInventory(); updateSalePreview(); }
 
-function bindNavigation() { $$('.nav-button').forEach((button) => button.addEventListener('click', () => { $$('.nav-button').forEach((item) => item.classList.remove('active')); $$('.view').forEach((view) => view.classList.remove('active-view')); button.classList.add('active'); $(`#${button.dataset.view}`).classList.add('active-view'); $('#viewTitle').textContent = button.textContent; })); }
+function bindNavigation() { $$('.nav-button').forEach((button) => button.addEventListener('click', () => { $$('.nav-button').forEach((item) => item.classList.remove('active')); $$('.view').forEach((view) => view.classList.remove('active-view')); button.classList.add('active'); $(`#${button.dataset.view}`).classList.add('active-view'); $('#viewTitle').textContent = (button.childNodes[0]?.textContent || button.textContent).trim(); })); }
 function handleForm(selector, endpoint) { $(selector).addEventListener('submit', async (event) => { event.preventDefault(); try { const next = await api(endpoint, { method: 'POST', body: JSON.stringify(parseForm(event.target)) }); applyState(next); event.target.reset(); const dateInput = event.target.querySelector('input[type="date"]'); if (dateInput) dateInput.value = today(); } catch (err) { alert(err.message); } }); }
-function bindForms() { $$('form input[type="date"]').forEach((input) => { input.value = today(); }); handleForm('#productForm', '/api/products'); handleForm('#purchaseForm', '/api/purchases'); handleForm('#costForm', '/api/costs'); handleForm('#saleForm', '/api/sales'); handleForm('#adjustmentForm', '/api/adjustments'); }
+function bindForms() { $$('form input[type="date"]').forEach((input) => { input.value = today(); }); $('#productForm')?.addEventListener('submit', submitProductForm); handleForm('#purchaseForm', '/api/purchases'); handleForm('#costForm', '/api/costs'); handleForm('#saleForm', '/api/sales'); handleForm('#adjustmentForm', '/api/adjustments'); }
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
@@ -488,6 +604,19 @@ function bindActions() {
     if (!editButton) return;
     editingProductId = editButton.dataset.editProductId;
     renderProducts();
+  });
+  document.body.addEventListener('click', (event) => {
+    const setBtn = event.target.closest('[data-edit-set-id]');
+    if (!setBtn) return;
+    const product = state.products.find((p) => p.id === String(setBtn.dataset.editSetId));
+    if (product) loadSetIntoForm(product);
+  });
+  $('#productType')?.addEventListener('change', toggleComponentEditor);
+  $('#addComponentRow')?.addEventListener('click', () => addComponentRow());
+  $('#cancelProductEdit')?.addEventListener('click', resetProductForm);
+  $('#componentRows')?.addEventListener('click', (event) => {
+    const rm = event.target.closest('.component-remove');
+    if (rm) rm.closest('.component-row')?.remove();
   });
   document.body.addEventListener('click', (event) => {
     if (!event.target.closest('[data-cancel-product-edit]')) return;

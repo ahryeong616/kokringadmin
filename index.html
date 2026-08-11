@@ -83,15 +83,24 @@
 
       <section id="products" class="view">
         <section class="panel">
-          <div class="panel-header"><h3>상품 등록</h3><span>상품코드는 자동 생성됩니다.</span></div>
+          <div class="panel-header"><h3 id="productFormTitle">상품 등록</h3><span>상품코드는 자동 생성됩니다. 세트(완제품)는 부품을 조합해 판매합니다.</span></div>
           <form id="productForm" class="form-grid">
+            <select name="type" id="productType"><option value="single">단일 상품</option><option value="set">세트(완제품)</option></select>
             <input name="name" placeholder="상품명" required>
             <input name="option" placeholder="옵션/색상/사이즈">
             <input name="supplier" placeholder="공급처/앱">
             <input name="salePrice" type="number" min="0" step="1" placeholder="기본 판매가">
             <input name="reorderLevel" type="number" min="0" step="1" placeholder="재주문 기준 수량">
-            <button class="primary-button" type="submit">상품 추가</button>
+            <button class="primary-button" type="submit" id="productSubmit">상품 추가</button>
           </form>
+          <div id="componentEditor" class="component-editor" hidden>
+            <div class="component-editor-head"><strong>세트 구성 부품</strong><span>완제품 1개에 들어가는 부품과 수량을 지정하세요. (예: 면그립 검정 1개 + 펭귄키링 1개)</span></div>
+            <div id="componentRows"></div>
+            <div class="component-editor-actions">
+              <button type="button" id="addComponentRow" class="ghost-button">＋ 부품 추가</button>
+              <button type="button" id="cancelProductEdit" class="text-button" hidden>수정 취소</button>
+            </div>
+          </div>
         </section>
         <section class="panel">
           <div class="panel-header"><h3>상품 목록</h3><span id="productCount">0개</span></div>
