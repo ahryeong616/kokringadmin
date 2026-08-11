@@ -293,8 +293,8 @@ function renderAdjustments() {
   $('#adjustmentCount').textContent = `${state.adjustments.length}건`;
   $('#adjustmentRows').innerHTML = state.adjustments.length ? [...state.adjustments].reverse().map((a) => {
     const inc = toNum(a.delta) >= 0;
-    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${productName(a.productId)}</td><td><span class="tag ${inc ? 'inc' : 'dec'}">${inc ? '증가 ＋' : '감소 −'}</span></td><td>${escapeHtml(a.reason)}</td><td>${inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
-  }).join('') : emptyRow(7);
+    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${productName(a.productId)}</td><td>${escapeHtml(a.reason)}</td><td class="${inc ? 'money-good' : 'money-bad'}">${inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
+  }).join('') : emptyRow(6);
 }
 
 function updateSalePreview() {
