@@ -4,25 +4,59 @@ const path = require('path');
 const express = require('express');
 const mariadb = require('mariadb');
 
-const required = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'APP_ACCESS_KEY'];
+// 클라우드(예: Aiven MySQL) 배포 시에는 DATABASE_URL 한 줄로 접속 정보를 받고,
+// 로컬 실행 시에는 기존처럼 DB_HOST/DB_USER 등 개별 값을 사용합니다.
+const required = process.env.DATABASE_URL
+  ? ['APP_ACCESS_KEY']
+  : ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'APP_ACCESS_KEY'];
 const missing = required.filter((key) => !process.env[key]);
 if (missing.length) {
   console.error(`Missing environment variables: ${missing.join(', ')}`);
   process.exit(1);
 }
 
+// 원격 DB는 대부분 SSL(TLS) 연결을 요구합니다.
+// DB_SSL=true 이거나 접속 URL에 ssl-mode=REQUIRED가 있으면 SSL을 켭니다.
+function sslOption() {
+  if (process.env.DB_SSL_CA) return { ca: process.env.DB_SSL_CA };
+  return { rejectUnauthorized: false };
+}
+
+function buildDbConfig() {
+  const base = { connectionLimit: 6, dateStrings: true, acquireTimeout: 15000 };
+  const sslEnabled = String(process.env.DB_SSL || '').toLowerCase() === 'true';
+
+  if (process.env.DATABASE_URL) {
+    const url = new URL(process.env.DATABASE_URL);
+    const useSsl = sslEnabled
+      || url.protocol === 'mysqls:'
+      || (url.searchParams.get('ssl-mode') || '').toUpperCase() === 'REQUIRED'
+      || (url.searchParams.get('sslmode') || '').toLowerCase() === 'require';
+    return {
+      ...base,
+      host: url.hostname,
+      port: Number(url.port || 3306),
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      database: url.pathname.replace(/^\//, '') || undefined,
+      ...(useSsl ? { ssl: sslOption() } : {}),
+    };
+  }
+
+  return {
+    ...base,
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    ...(sslEnabled ? { ssl: sslOption() } : {}),
+  };
+}
+
 const PORT = Number(process.env.PORT || 3000);
 const app = express();
-const pool = mariadb.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  connectionLimit: 6,
-  dateStrings: true,
-  acquireTimeout: 10000,
-});
+const pool = mariadb.createPool(buildDbConfig());
 
 const eventClients = new Set();
 

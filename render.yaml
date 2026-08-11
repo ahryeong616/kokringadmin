@@ -1,0 +1,18 @@
+# Render 배포 설정 (Blueprint)
+# Render 대시보드에서 New + > Blueprint 로 이 저장소를 연결하면
+# 아래 설정을 자동으로 읽어 웹 서비스를 만들어 줍니다.
+# DATABASE_URL 과 APP_ACCESS_KEY 는 배포 중에 직접 입력하게 됩니다(비밀값).
+services:
+  - type: web
+    name: kokring-inventory
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DB_SSL
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_ACCESS_KEY
+        sync: false
