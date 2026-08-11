@@ -318,6 +318,26 @@ app.post('/api/products', async (req, res, next) => {
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
+app.patch('/api/products/:id', async (req, res, next) => {
+  let conn;
+  try {
+    const name = text(req.body?.name, 200);
+    if (!name) throw error('상품명을 입력해 주세요.');
+    conn = await pool.getConnection();
+    const productId = await getActiveProduct(conn, req.params.id);
+    const result = await conn.query(
+      `UPDATE products
+       SET product_name = ?, product_option = ?, supplier = ?, base_sale_price = ?, reorder_level = ?
+       WHERE product_id = ?`,
+      [name, text(req.body?.option, 200) || null, text(req.body?.supplier, 200) || null,
+        number(req.body?.salePrice), integer(req.body?.reorderLevel), productId],
+    );
+    if (Number(result.affectedRows) === 0) throw error('수정할 상품을 찾을 수 없습니다.', 404);
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
 app.delete('/api/products/:id', async (req, res, next) => {
   let conn;
   try {
@@ -454,6 +474,29 @@ app.post('/api/sales', async (req, res, next) => {
       [date, text(req.body?.orderNo, 100) || null, productId, integer(req.body?.quantity), number(req.body?.salePrice),
        number(req.body?.discount), number(req.body?.shippingIncome), number(req.body?.shippingCost), number(req.body?.packingCost), number(req.body?.platformFee)],
     );
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
+app.patch('/api/sales/:id', async (req, res, next) => {
+  let conn;
+  try {
+    const date = dateOnly(req.body?.date);
+    if (!date) throw error('판매 날짜를 확인해 주세요.');
+    if (integer(req.body?.quantity) < 1) throw error('판매 수량은 1개 이상이어야 합니다.');
+    conn = await pool.getConnection();
+    const productId = await getActiveProduct(conn, req.body?.productId);
+    const result = await conn.query(
+      `UPDATE sales
+       SET sale_date = ?, order_no = ?, product_id = ?, quantity = ?, sale_price = ?, discount = ?,
+           shipping_income = ?, shipping_cost = ?, packing_cost = ?, platform_fee = ?
+       WHERE sale_id = ?`,
+      [date, text(req.body?.orderNo, 100) || null, productId, integer(req.body?.quantity), number(req.body?.salePrice),
+       number(req.body?.discount), number(req.body?.shippingIncome), number(req.body?.shippingCost),
+       number(req.body?.packingCost), number(req.body?.platformFee), req.params.id],
+    );
+    if (Number(result.affectedRows) === 0) throw error('수정할 판매 기록을 찾을 수 없습니다.', 404);
     broadcast();
     await replyState(res, conn);
   } catch (err) { next(err); } finally { if (conn) conn.release(); }

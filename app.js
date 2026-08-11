@@ -7,6 +7,9 @@ let accessKey = sessionStorage.getItem('kokring_access_key') || '';
 let eventSource;
 let editingPurchaseId = '';
 let editingCostId = '';
+let editingProductId = '';
+let editingSaleId = '';
+let saleFilters = { productId: '', from: '', to: '', q: '' };
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function money(value) { return formatter.format(Math.round(Number(value) || 0)); }
@@ -192,8 +195,74 @@ function renderCostEditRow(c) {
 function readInlineCostRow(row) {
   return Object.fromEntries([...row.querySelectorAll('input[name], select[name]')].map((field) => [field.name, field.value]));
 }
+function productActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-product-id="${id}">수정</button>${deleteButton('products', id)}</div>`; }
+function saleActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-sale-id="${id}">수정</button>${deleteButton('sales', id)}</div>`; }
+function renderProductEditRow(p) {
+  return `<tr data-product-edit-id="${p.id}">
+    <td>${escapeHtml(p.code)}</td>
+    <td><input class="inline-input" name="name" value="${escapeHtml(p.name)}" placeholder="상품명" required><input class="inline-input" name="option" value="${escapeHtml(p.option || '')}" placeholder="옵션/색상/사이즈"></td>
+    <td><input class="inline-input" name="supplier" value="${escapeHtml(p.supplier || '')}" placeholder="공급처"></td>
+    <td><input class="inline-input compact" name="salePrice" type="number" min="0" step="1" value="${toNum(p.salePrice)}"></td>
+    <td><input class="inline-input compact" name="reorderLevel" type="number" min="0" step="1" value="${toNum(p.reorderLevel)}"></td>
+    <td><div class="row-actions"><button class="primary-button" data-save-product-id="${p.id}">저장</button><button class="cancel-button" data-cancel-product-edit>취소</button></div></td>
+  </tr>`;
+}
+function readInlineProductRow(row) {
+  return Object.fromEntries([...row.querySelectorAll('input[name], select[name]')].map((field) => [field.name, field.value]));
+}
+function renderSaleEditRow(s) {
+  return `<tr data-sale-edit-id="${s.id}">
+    <td><input class="inline-input compact" name="date" type="date" value="${escapeHtml(s.date)}" required></td>
+    <td><input class="inline-input" name="orderNo" value="${escapeHtml(s.orderNo || '')}" placeholder="주문번호"></td>
+    <td><select class="inline-select" name="productId" required>${productOptions(s.productId)}</select></td>
+    <td><input class="inline-input compact" name="quantity" type="number" min="1" step="1" value="${toNum(s.quantity)}" required></td>
+    <td>
+      <input class="inline-input compact" name="salePrice" type="number" min="0" step="1" value="${toNum(s.salePrice)}" placeholder="개당 판매가" required>
+      <input class="inline-input compact" name="discount" type="number" min="0" step="1" value="${toNum(s.discount)}" placeholder="할인">
+      <input class="inline-input compact" name="shippingIncome" type="number" min="0" step="1" value="${toNum(s.shippingIncome)}" placeholder="받은 배송비">
+    </td>
+    <td>
+      <input class="inline-input compact" name="shippingCost" type="number" min="0" step="1" value="${toNum(s.shippingCost)}" placeholder="실제 택배비">
+      <input class="inline-input compact" name="packingCost" type="number" min="0" step="1" value="${toNum(s.packingCost)}" placeholder="포장비">
+      <input class="inline-input compact" name="platformFee" type="number" min="0" step="1" value="${toNum(s.platformFee)}" placeholder="수수료">
+    </td>
+    <td><div class="row-actions"><button class="primary-button" data-save-sale-id="${s.id}">저장</button><button class="cancel-button" data-cancel-sale-edit>취소</button></div></td>
+  </tr>`;
+}
+function readInlineSaleRow(row) {
+  return Object.fromEntries([...row.querySelectorAll('input[name], select[name]')].map((field) => [field.name, field.value]));
+}
+function stockBadge(stat) {
+  if (stat.stock <= 0) return '<span class="stock-badge out">품절</span>';
+  if (stat.stock <= toNum(stat.product.reorderLevel)) return '<span class="stock-badge low">부족</span>';
+  return '';
+}
+function stockRowClass(stat) {
+  if (stat.stock <= 0) return 'row-out';
+  if (stat.stock <= toNum(stat.product.reorderLevel)) return 'row-low';
+  return '';
+}
+function saleMatchesFilter(sale) {
+  if (saleFilters.productId && String(sale.productId) !== String(saleFilters.productId)) return false;
+  if (saleFilters.from && sale.date < saleFilters.from) return false;
+  if (saleFilters.to && sale.date > saleFilters.to) return false;
+  if (saleFilters.q && !(sale.orderNo || '').toLowerCase().includes(saleFilters.q.toLowerCase())) return false;
+  return true;
+}
+function fillSaleFilterProduct() {
+  const select = $('#saleFilterProduct');
+  if (!select) return;
+  const current = saleFilters.productId;
+  select.innerHTML = `<option value="">전체 상품</option>${state.products.map((product) => `<option value="${product.id}" ${String(product.id) === String(current) ? 'selected' : ''}>${escapeHtml(product.code)} · ${escapeHtml(productName(product.id))}</option>`).join('')}`;
+}
 function renderDashboard() { const sum = totals(); $('#metricInvestment').textContent = money(sum.investment); $('#metricInventoryValue').textContent = money(sum.inventoryValue); $('#metricRevenue').textContent = money(sum.revenue); $('#metricProfit').textContent = money(sum.profit); }
-function renderProducts() { $('#productCount').textContent = `${state.products.length}개`; $('#productRows').innerHTML = state.products.length ? state.products.map((p) => `<tr><td>${p.code}</td><td><strong>${p.name}</strong><small>${p.option || '-'}</small></td><td>${p.supplier || '-'}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${deleteButton('products', p.id)}</td></tr>`).join('') : emptyRow(6); }
+function renderProducts() {
+  $('#productCount').textContent = `${state.products.length}개`;
+  $('#productRows').innerHTML = state.products.length ? state.products.map((p) => {
+    if (String(p.id) === String(editingProductId)) return renderProductEditRow(p);
+    return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(p.option || '-')}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p.id)}</td></tr>`;
+  }).join('') : emptyRow(6);
+}
 function renderPurchases() {
   $('#purchaseCount').textContent = `${state.purchases.length}건`;
   $('#purchaseRows').innerHTML = state.purchases.length ? state.purchases.map((p) => {
@@ -209,8 +278,28 @@ function renderCosts() {
     return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${c.name}</strong><small>${c.memo || '-'}</small></td><td>${c.category}</td><td>${labels[c.allocation]}${c.productId ? ` · ${productName(c.productId)}` : ''}</td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
   }).join('') : emptyRow(6);
 }
-function renderSales() { const { statsMap } = totals(); $('#saleCount').textContent = `${state.sales.length}건`; $('#salesCount').textContent = `${state.sales.length}건`; $('#saleRows').innerHTML = state.sales.length ? state.sales.map((s) => { const r = saleResult(s, statsMap); return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${s.orderNo || '-'}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.netRevenue)}</td><td>${money(r.profit)}</td><td>${deleteButton('sales', s.id)}</td></tr>`; }).join('') : emptyRow(7); const recent = [...state.sales].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5); $('#recentSalesRows').innerHTML = recent.length ? recent.map((s) => { const r = saleResult(s, statsMap); return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.profit)}</td></tr>`; }).join('') : emptyRow(4); }
-function renderInventory() { const { stats } = totals(); $('#inventoryRows').innerHTML = stats.length ? stats.map((i) => `<tr><td><strong>${i.product.name}</strong><small>${i.product.code} · ${i.product.option || '-'}</small></td><td>${number(i.purchasedQty)}개</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td>${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`).join('') : emptyRow(9); const low = stats.filter((item) => item.stock <= item.product.reorderLevel); $('#lowStockCount').textContent = `${low.length}개`; $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr><td>${i.product.name}</td><td>${number(i.stock)}개</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.'); }
+function renderSales() {
+  const { statsMap } = totals();
+  fillSaleFilterProduct();
+  const filtered = state.sales.filter(saleMatchesFilter);
+  const isFiltered = filtered.length !== state.sales.length;
+  $('#saleCount').textContent = isFiltered ? `${filtered.length}건 / 전체 ${state.sales.length}건` : `${state.sales.length}건`;
+  $('#salesCount').textContent = `${state.sales.length}건`;
+  $('#saleRows').innerHTML = filtered.length ? filtered.map((s) => {
+    if (String(s.id) === String(editingSaleId)) return renderSaleEditRow(s);
+    const r = saleResult(s, statsMap);
+    return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${escapeHtml(s.orderNo || '-')}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.netRevenue)}</td><td class="${r.profit < 0 ? 'money-bad' : ''}">${money(r.profit)}</td><td>${saleActionButtons(s.id)}</td></tr>`;
+  }).join('') : emptyRow(7, state.sales.length ? '조건에 맞는 판매 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
+  const recent = [...state.sales].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  $('#recentSalesRows').innerHTML = recent.length ? recent.map((s) => { const r = saleResult(s, statsMap); return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.profit)}</td></tr>`; }).join('') : emptyRow(4);
+}
+function renderInventory() {
+  const { stats } = totals();
+  $('#inventoryRows').innerHTML = stats.length ? stats.map((i) => `<tr class="${stockRowClass(i)}"><td><strong>${escapeHtml(i.product.name)}</strong><small>${escapeHtml(i.product.code)} · ${escapeHtml(i.product.option || '-')}</small></td><td>${number(i.purchasedQty)}개</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`).join('') : emptyRow(9);
+  const low = stats.filter((item) => item.stock <= toNum(item.product.reorderLevel));
+  $('#lowStockCount').textContent = `${low.length}개`;
+  $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr class="${stockRowClass(i)}"><td>${escapeHtml(i.product.name)}</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.');
+}
 function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderInventory(); }
 
 function bindNavigation() { $$('.nav-button').forEach((button) => button.addEventListener('click', () => { $$('.nav-button').forEach((item) => item.classList.remove('active')); $$('.view').forEach((view) => view.classList.remove('active-view')); button.classList.add('active'); $(`#${button.dataset.view}`).classList.add('active-view'); $('#viewTitle').textContent = button.textContent; })); }
@@ -271,6 +360,60 @@ function bindActions() {
     } catch (err) {
       alert(err.message);
     }
+  });
+  document.body.addEventListener('click', (event) => {
+    const editButton = event.target.closest('[data-edit-product-id]');
+    if (!editButton) return;
+    editingProductId = editButton.dataset.editProductId;
+    renderProducts();
+  });
+  document.body.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-cancel-product-edit]')) return;
+    editingProductId = '';
+    renderProducts();
+  });
+  document.body.addEventListener('click', async (event) => {
+    const saveButton = event.target.closest('[data-save-product-id]');
+    if (!saveButton) return;
+    const row = saveButton.closest('[data-product-edit-id]');
+    if (!row) return;
+    try {
+      const nextState = await api(`/api/products/${saveButton.dataset.saveProductId}`, { method: 'PATCH', body: JSON.stringify(readInlineProductRow(row)) });
+      editingProductId = '';
+      applyState(nextState);
+    } catch (err) { alert(err.message); }
+  });
+  document.body.addEventListener('click', (event) => {
+    const editButton = event.target.closest('[data-edit-sale-id]');
+    if (!editButton) return;
+    editingSaleId = editButton.dataset.editSaleId;
+    renderSales();
+  });
+  document.body.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-cancel-sale-edit]')) return;
+    editingSaleId = '';
+    renderSales();
+  });
+  document.body.addEventListener('click', async (event) => {
+    const saveButton = event.target.closest('[data-save-sale-id]');
+    if (!saveButton) return;
+    const row = saveButton.closest('[data-sale-edit-id]');
+    if (!row) return;
+    try {
+      const nextState = await api(`/api/sales/${saveButton.dataset.saveSaleId}`, { method: 'PATCH', body: JSON.stringify(readInlineSaleRow(row)) });
+      editingSaleId = '';
+      applyState(nextState);
+    } catch (err) { alert(err.message); }
+  });
+  const bindSaleFilter = (id, key) => { const el = $(`#${id}`); if (el) el.addEventListener('input', () => { saleFilters[key] = el.value; renderSales(); }); };
+  bindSaleFilter('saleFilterProduct', 'productId');
+  bindSaleFilter('saleFilterFrom', 'from');
+  bindSaleFilter('saleFilterTo', 'to');
+  bindSaleFilter('saleFilterQuery', 'q');
+  $('#saleFilterReset')?.addEventListener('click', () => {
+    saleFilters = { productId: '', from: '', to: '', q: '' };
+    ['saleFilterProduct', 'saleFilterFrom', 'saleFilterTo', 'saleFilterQuery'].forEach((id) => { const el = $(`#${id}`); if (el) el.value = ''; });
+    renderSales();
   });
   document.body.addEventListener('click', async (event) => { const button = event.target.closest('[data-delete-type]'); if (!button) return; if (!confirm('이 기록을 삭제할까요?')) return; try { applyState(await api(`/api/${button.dataset.deleteType}/${button.dataset.deleteId}`, { method: 'DELETE' })); } catch (err) { alert(err.message); } });
   $('#resetDemo').addEventListener('click', async () => { if (!confirm('현재 클라우드 데이터를 샘플 데이터로 전부 바꿀까요?')) return; try { applyState(await api('/api/import', { method: 'PUT', body: JSON.stringify(seedDemo()) })); } catch (err) { alert(err.message); } });
