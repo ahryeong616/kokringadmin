@@ -173,6 +173,18 @@ async function ensureSchema() {
         CONSTRAINT fk_sales_product FOREIGN KEY (product_id) REFERENCES products(product_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS adjustments (
+        adjustment_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        adjustment_date DATE NOT NULL,
+        product_id BIGINT UNSIGNED NOT NULL,
+        quantity_delta INT NOT NULL,
+        reason VARCHAR(100) NOT NULL,
+        memo VARCHAR(1000) NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_adjustments_product FOREIGN KEY (product_id) REFERENCES products(product_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
     await conn.query(
       'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_key = setting_key',
       ['defaultRate', 190],
@@ -183,7 +195,7 @@ async function ensureSchema() {
 }
 
 async function readState(conn) {
-  const state = { settings: { defaultRate: 190 }, products: [], purchases: [], costs: [], sales: [] };
+  const state = { settings: { defaultRate: 190 }, products: [], purchases: [], costs: [], sales: [], adjustments: [] };
   const settings = await conn.query('SELECT setting_value FROM app_settings WHERE setting_key = ?', ['defaultRate']);
   if (settings.length) state.settings.defaultRate = number(settings[0].setting_value, 190);
 
@@ -229,6 +241,17 @@ async function readState(conn) {
     discount: number(row.discount), shippingIncome: number(row.shipping_income),
     shippingCost: number(row.shipping_cost), packingCost: number(row.packing_cost),
     platformFee: number(row.platform_fee),
+  }));
+
+  const adjustments = await conn.query(`
+    SELECT adjustment_id, adjustment_date AS date, product_id, quantity_delta, reason, memo
+    FROM adjustments ORDER BY adjustment_id ASC
+  `);
+  state.adjustments = adjustments.map((row) => ({
+    id: String(row.adjustment_id), date: dateOnly(row.date), productId: String(row.product_id),
+    delta: integer(Math.abs(row.quantity_delta)) * (Number(row.quantity_delta) < 0 ? -1 : 1),
+    direction: Number(row.quantity_delta) < 0 ? 'decrease' : 'increase',
+    quantity: Math.abs(Number(row.quantity_delta) || 0), reason: row.reason || '', memo: row.memo || '',
   }));
   return state;
 }
@@ -512,6 +535,37 @@ app.delete('/api/sales/:id', async (req, res, next) => {
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
+app.post('/api/adjustments', async (req, res, next) => {
+  let conn;
+  try {
+    const date = dateOnly(req.body?.date);
+    if (!date) throw error('조정 날짜를 확인해 주세요.');
+    const quantity = integer(req.body?.quantity);
+    if (quantity < 1) throw error('조정 수량은 1개 이상이어야 합니다.');
+    const reason = text(req.body?.reason, 100);
+    if (!reason) throw error('조정 사유를 선택해 주세요.');
+    const delta = req.body?.direction === 'increase' ? quantity : -quantity;
+    conn = await pool.getConnection();
+    const productId = await getActiveProduct(conn, req.body?.productId);
+    await conn.query(
+      'INSERT INTO adjustments (adjustment_date, product_id, quantity_delta, reason, memo) VALUES (?, ?, ?, ?, ?)',
+      [date, productId, delta, reason, text(req.body?.memo) || null],
+    );
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
+app.delete('/api/adjustments/:id', async (req, res, next) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.query('DELETE FROM adjustments WHERE adjustment_id = ?', [req.params.id]);
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
 app.put('/api/import', async (req, res, next) => {
   let conn;
   try {
@@ -520,8 +574,10 @@ app.put('/api/import', async (req, res, next) => {
     const purchases = Array.isArray(incoming.purchases) ? incoming.purchases : [];
     const costs = Array.isArray(incoming.costs) ? incoming.costs : [];
     const sales = Array.isArray(incoming.sales) ? incoming.sales : [];
+    const adjustments = Array.isArray(incoming.adjustments) ? incoming.adjustments : [];
     conn = await pool.getConnection();
     await conn.beginTransaction();
+    await conn.query('DELETE FROM adjustments');
     await conn.query('DELETE FROM sales');
     await conn.query('DELETE FROM purchases');
     await conn.query('DELETE FROM costs');
@@ -561,6 +617,14 @@ app.put('/api/import', async (req, res, next) => {
       const date = dateOnly(item.date); if (!date) throw error('가져오기 파일의 판매 날짜를 확인해 주세요.');
       await conn.query(`INSERT INTO sales (sale_date, order_no, product_id, quantity, sale_price, discount, shipping_income, shipping_cost, packing_cost, platform_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [date, text(item.orderNo, 100) || null, resolveProduct(item.productId), integer(item.quantity), number(item.salePrice), number(item.discount), number(item.shippingIncome), number(item.shippingCost), number(item.packingCost), number(item.platformFee)]);
+    }
+    for (const item of adjustments) {
+      const date = dateOnly(item.date); if (!date) throw error('가져오기 파일의 재고 조정 날짜를 확인해 주세요.');
+      const qty = integer(item.quantity ?? Math.abs(item.delta));
+      if (qty < 1) continue;
+      const delta = (item.direction === 'increase' || Number(item.delta) > 0) ? qty : -qty;
+      await conn.query('INSERT INTO adjustments (adjustment_date, product_id, quantity_delta, reason, memo) VALUES (?, ?, ?, ?, ?)',
+        [date, resolveProduct(item.productId), delta, text(item.reason, 100) || '조정', text(item.memo) || null]);
     }
     await conn.commit();
     broadcast();

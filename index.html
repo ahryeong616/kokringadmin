@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>콕링 재고관리</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -22,7 +23,8 @@
         <button class="nav-button" data-view="purchases">입고</button>
         <button class="nav-button" data-view="costs">비용</button>
         <button class="nav-button" data-view="sales">판매</button>
-        <button class="nav-button" data-view="inventory">재고/마진</button>
+        <button class="nav-button" data-view="adjustments">재고조정</button>
+        <button class="nav-button" data-view="inventory">재고/마진<span id="navLowStock" class="nav-badge" hidden>0</span></button>
       </nav>
       <div class="sidebar-tools">
         <button id="exportJson" class="ghost-button">백업 내보내기</button>
@@ -46,22 +48,37 @@
       </header>
 
       <section id="dashboard" class="view active-view">
+        <div class="period-bar" id="periodBar">
+          <span class="period-label">기간</span>
+          <button type="button" class="chip" data-period="all">전체</button>
+          <button type="button" class="chip active" data-period="thisMonth">이번 달</button>
+          <button type="button" class="chip" data-period="lastMonth">지난 달</button>
+          <button type="button" class="chip" data-period="3months">최근 3개월</button>
+        </div>
         <div class="metric-grid">
           <article class="metric"><span>초기 투자 비용</span><strong id="metricInvestment">0원</strong></article>
           <article class="metric"><span>현재 재고금액</span><strong id="metricInventoryValue">0원</strong></article>
-          <article class="metric"><span>누적 매출</span><strong id="metricRevenue">0원</strong></article>
-          <article class="metric"><span>예상 순이익</span><strong id="metricProfit">0원</strong></article>
+          <article class="metric"><span id="metricRevenueLabel">매출</span><strong id="metricRevenue">0원</strong></article>
+          <article class="metric"><span id="metricProfitLabel">순이익</span><strong id="metricProfit">0원</strong></article>
         </div>
+        <section class="panel">
+          <div class="panel-header"><h3>월별 매출 · 순이익</h3><span>최근 6개월 · <span class="legend-dot rev"></span>매출 <span class="legend-dot prof"></span>순이익</span></div>
+          <div id="monthlyChart" class="chart-wrap"></div>
+        </section>
         <div class="split">
           <section class="panel">
             <div class="panel-header"><h3>재고 주의 상품</h3><span class="pill" id="lowStockCount">0개</span></div>
             <div class="table-wrap"><table><thead><tr><th>상품</th><th>현재 재고</th><th>재주문 기준</th><th>예상 마진</th></tr></thead><tbody id="lowStockRows"></tbody></table></div>
           </section>
           <section class="panel">
-            <div class="panel-header"><h3>최근 판매</h3><span class="pill" id="salesCount">0건</span></div>
-            <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody id="recentSalesRows"></tbody></table></div>
+            <div class="panel-header"><h3>베스트셀러</h3><span id="bestsellerPeriod" class="pill">이번 달</span></div>
+            <div class="table-wrap"><table><thead><tr><th>상품</th><th>판매 수량</th><th>매출</th><th>순이익</th></tr></thead><tbody id="bestsellerRows"></tbody></table></div>
           </section>
         </div>
+        <section class="panel">
+          <div class="panel-header"><h3>최근 판매</h3><span class="pill" id="salesCount">0건</span></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody id="recentSalesRows"></tbody></table></div>
+        </section>
       </section>
 
       <section id="products" class="view">
@@ -78,6 +95,10 @@
         </section>
         <section class="panel">
           <div class="panel-header"><h3>상품 목록</h3><span id="productCount">0개</span></div>
+          <div class="filter-bar">
+            <input id="productFilterQuery" type="search" placeholder="상품명·코드·공급처 검색">
+            <button id="productFilterReset" type="button" class="ghost-button">검색 초기화</button>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>코드</th><th>상품</th><th>공급처</th><th>판매가</th><th>재주문</th><th></th></tr></thead><tbody id="productRows"></tbody></table></div>
         </section>
       </section>
@@ -99,6 +120,14 @@
         </section>
         <section class="panel">
           <div class="panel-header"><h3>입고 내역</h3><span id="purchaseCount">0건</span></div>
+          <div class="filter-bar">
+            <select id="purchaseFilterProduct" aria-label="상품 필터"><option value="">전체 상품</option></select>
+            <input id="purchaseFilterFrom" type="date" aria-label="시작일">
+            <input id="purchaseFilterTo" type="date" aria-label="종료일">
+            <input id="purchaseFilterQuery" type="search" placeholder="공급처·메모 검색">
+            <span class="quick-dates" data-filter="purchase"><button type="button" class="chip sm" data-range="today">오늘</button><button type="button" class="chip sm" data-range="week">이번주</button><button type="button" class="chip sm" data-range="month">이번달</button></span>
+            <button id="purchaseFilterReset" type="button" class="ghost-button">필터 초기화</button>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>공급처</th><th>수량</th><th>통화/매입가</th><th>배송비</th><th>메모</th><th>원화 합계</th><th></th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
         </section>
       </section>
@@ -119,6 +148,14 @@
         </section>
         <section class="panel">
           <div class="panel-header"><h3>비용 내역</h3><span id="costCount">0건</span></div>
+          <div class="filter-bar">
+            <select id="costFilterCategory" aria-label="구분 필터"><option value="">전체 구분</option><option>포장비</option><option>로고/스티커</option><option>택배/배송</option><option>관세/부가세</option><option>촬영/마케팅</option><option>기타</option></select>
+            <input id="costFilterFrom" type="date" aria-label="시작일">
+            <input id="costFilterTo" type="date" aria-label="종료일">
+            <input id="costFilterQuery" type="search" placeholder="비용명·메모 검색">
+            <span class="quick-dates" data-filter="cost"><button type="button" class="chip sm" data-range="today">오늘</button><button type="button" class="chip sm" data-range="week">이번주</button><button type="button" class="chip sm" data-range="month">이번달</button></span>
+            <button id="costFilterReset" type="button" class="ghost-button">필터 초기화</button>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>날짜</th><th>항목</th><th>구분</th><th>배분</th><th>금액</th><th></th></tr></thead><tbody id="costRows"></tbody></table></div>
         </section>
       </section>
@@ -139,6 +176,7 @@
             <input name="platformFee" type="number" min="0" step="1" placeholder="플랫폼/결제 수수료">
             <button class="primary-button" type="submit">판매 추가</button>
           </form>
+          <div id="salePreview" class="form-preview" hidden></div>
         </section>
         <section class="panel">
           <div class="panel-header"><h3>판매 내역</h3><span id="saleCount">0건</span></div>
@@ -147,9 +185,29 @@
             <input id="saleFilterFrom" type="date" aria-label="시작일">
             <input id="saleFilterTo" type="date" aria-label="종료일">
             <input id="saleFilterQuery" type="search" placeholder="주문번호 검색">
+            <span class="quick-dates" data-filter="sale"><button type="button" class="chip sm" data-range="today">오늘</button><button type="button" class="chip sm" data-range="week">이번주</button><button type="button" class="chip sm" data-range="month">이번달</button></span>
             <button id="saleFilterReset" type="button" class="ghost-button">필터 초기화</button>
           </div>
           <div class="table-wrap"><table><thead><tr><th>날짜</th><th>주문</th><th>상품</th><th>수량</th><th>매출</th><th>순이익</th><th></th></tr></thead><tbody id="saleRows"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="adjustments" class="view">
+        <section class="panel">
+          <div class="panel-header"><h3>재고 조정</h3><span>분실·파손·샘플 증정·실사 보정을 기록해 실제 재고와 맞춥니다.</span></div>
+          <form id="adjustmentForm" class="form-grid">
+            <input name="date" type="date" required>
+            <select name="productId" required></select>
+            <select name="direction"><option value="decrease">재고 감소 (−)</option><option value="increase">재고 증가 (＋)</option></select>
+            <select name="reason"><option>분실</option><option>파손</option><option>샘플 증정</option><option>도난</option><option>반품 입고</option><option>실사 보정</option><option>기타</option></select>
+            <input name="quantity" type="number" min="1" step="1" placeholder="수량" required>
+            <input name="memo" placeholder="메모">
+            <button class="primary-button" type="submit">조정 추가</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><h3>조정 내역</h3><span id="adjustmentCount">0건</span></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>구분</th><th>사유</th><th>수량</th><th>메모</th><th></th></tr></thead><tbody id="adjustmentRows"></tbody></table></div>
         </section>
       </section>
 

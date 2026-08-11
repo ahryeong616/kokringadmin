@@ -1,4 +1,4 @@
-const state = { settings: { defaultRate: 190 }, products: [], purchases: [], costs: [], sales: [] };
+const state = { settings: { defaultRate: 190 }, products: [], purchases: [], costs: [], sales: [], adjustments: [] };
 const formatter = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 });
 const dateFormatter = new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
 const $ = (selector) => document.querySelector(selector);
@@ -10,6 +10,10 @@ let editingCostId = '';
 let editingProductId = '';
 let editingSaleId = '';
 let saleFilters = { productId: '', from: '', to: '', q: '' };
+let purchaseFilters = { productId: '', from: '', to: '', q: '' };
+let costFilters = { category: '', from: '', to: '', q: '' };
+let productFilters = { q: '' };
+let dashboardPeriod = 'thisMonth';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function money(value) { return formatter.format(Math.round(Number(value) || 0)); }
@@ -108,12 +112,13 @@ function inventoryStats() {
     const sales = state.sales.filter((item) => item.productId === product.id);
     const purchasedQty = purchases.reduce((sum, item) => sum + item.quantity, 0);
     const soldQty = sales.reduce((sum, item) => sum + item.quantity, 0);
+    const adjustQty = state.adjustments.filter((item) => item.productId === product.id).reduce((sum, item) => sum + toNum(item.delta), 0);
     const purchaseValue = purchases.reduce((sum, item) => sum + purchaseTotal(item), 0);
     const avgCost = purchasedQty > 0 ? (purchaseValue + (allocated[product.id] || 0)) / purchasedQty : 0;
-    const stock = purchasedQty - soldQty;
+    const stock = purchasedQty - soldQty + adjustQty;
     const salePrice = toNum(product.salePrice);
     const margin = salePrice - avgCost;
-    return { product, purchasedQty, soldQty, stock, avgCost, salePrice, margin, marginRate: salePrice > 0 ? margin / salePrice : 0, inventoryValue: Math.max(stock, 0) * avgCost };
+    return { product, purchasedQty, soldQty, adjustQty, stock, avgCost, salePrice, margin, marginRate: salePrice > 0 ? margin / salePrice : 0, inventoryValue: Math.max(stock, 0) * avgCost };
   });
 }
 function saleResult(sale, statsMap) {
@@ -249,34 +254,149 @@ function saleMatchesFilter(sale) {
   if (saleFilters.q && !(sale.orderNo || '').toLowerCase().includes(saleFilters.q.toLowerCase())) return false;
   return true;
 }
-function fillSaleFilterProduct() {
-  const select = $('#saleFilterProduct');
-  if (!select) return;
-  const current = saleFilters.productId;
-  select.innerHTML = `<option value="">전체 상품</option>${state.products.map((product) => `<option value="${product.id}" ${String(product.id) === String(current) ? 'selected' : ''}>${escapeHtml(product.code)} · ${escapeHtml(productName(product.id))}</option>`).join('')}`;
+function productFilterOptions(current) {
+  return `<option value="">전체 상품</option>${state.products.map((p) => `<option value="${p.id}" ${String(p.id) === String(current) ? 'selected' : ''}>${escapeHtml(p.code)} · ${escapeHtml(productName(p.id))}</option>`).join('')}`;
 }
-function renderDashboard() { const sum = totals(); $('#metricInvestment').textContent = money(sum.investment); $('#metricInventoryValue').textContent = money(sum.inventoryValue); $('#metricRevenue').textContent = money(sum.revenue); $('#metricProfit').textContent = money(sum.profit); }
+function fillSaleFilterProduct() { const el = $('#saleFilterProduct'); if (el) el.innerHTML = productFilterOptions(saleFilters.productId); }
+function fillPurchaseFilterProduct() { const el = $('#purchaseFilterProduct'); if (el) el.innerHTML = productFilterOptions(purchaseFilters.productId); }
+
+function periodRange(period) {
+  const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (period === 'thisMonth') return { from: iso(new Date(y, m, 1)), to: iso(new Date(y, m + 1, 0)) };
+  if (period === 'lastMonth') return { from: iso(new Date(y, m - 1, 1)), to: iso(new Date(y, m, 0)) };
+  if (period === '3months') return { from: iso(new Date(y, m - 2, 1)), to: iso(new Date(y, m + 1, 0)) };
+  return { from: '', to: '' };
+}
+function periodLabel(period) { return { all: '전체', thisMonth: '이번 달', lastMonth: '지난 달', '3months': '최근 3개월' }[period] || '기간'; }
+function inRange(date, from, to) { if (from && date < from) return false; if (to && date > to) return false; return true; }
+
+function purchaseMatchesFilter(p) {
+  if (purchaseFilters.productId && String(p.productId) !== String(purchaseFilters.productId)) return false;
+  if (!inRange(p.date, purchaseFilters.from, purchaseFilters.to)) return false;
+  if (purchaseFilters.q && !`${purchaseSupplier(p)} ${p.memo || ''}`.toLowerCase().includes(purchaseFilters.q.toLowerCase())) return false;
+  return true;
+}
+function costMatchesFilter(c) {
+  if (costFilters.category && c.category !== costFilters.category) return false;
+  if (!inRange(c.date, costFilters.from, costFilters.to)) return false;
+  if (costFilters.q && !`${c.name} ${c.memo || ''}`.toLowerCase().includes(costFilters.q.toLowerCase())) return false;
+  return true;
+}
+function productMatchesFilter(p) {
+  if (!productFilters.q) return true;
+  return `${p.code} ${p.name} ${p.option || ''} ${p.supplier || ''}`.toLowerCase().includes(productFilters.q.toLowerCase());
+}
+
+function adjustmentActionButtons(id) { return `<div class="row-actions">${deleteButton('adjustments', id)}</div>`; }
+function renderAdjustments() {
+  $('#adjustmentCount').textContent = `${state.adjustments.length}건`;
+  $('#adjustmentRows').innerHTML = state.adjustments.length ? [...state.adjustments].reverse().map((a) => {
+    const inc = toNum(a.delta) >= 0;
+    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${productName(a.productId)}</td><td><span class="tag ${inc ? 'inc' : 'dec'}">${inc ? '증가 ＋' : '감소 −'}</span></td><td>${escapeHtml(a.reason)}</td><td>${inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
+  }).join('') : emptyRow(7);
+}
+
+function updateSalePreview() {
+  const form = $('#saleForm'); const box = $('#salePreview');
+  if (!form || !box) return;
+  const f = parseForm(form);
+  if (!f.productId || !toNum(f.quantity)) { box.hidden = true; return; }
+  const { statsMap } = totals();
+  const draft = {
+    productId: String(f.productId), quantity: toNum(f.quantity), salePrice: toNum(f.salePrice),
+    discount: toNum(f.discount), shippingIncome: toNum(f.shippingIncome), shippingCost: toNum(f.shippingCost),
+    packingCost: toNum(f.packingCost), platformFee: toNum(f.platformFee),
+  };
+  const r = saleResult(draft, statsMap);
+  const stat = statsMap[draft.productId];
+  const stock = stat ? stat.stock : 0;
+  box.hidden = false;
+  box.className = `form-preview ${r.profit < 0 ? 'bad' : 'good'}`;
+  box.innerHTML = `<span>예상 매출 <strong>${money(r.netRevenue)}</strong></span><span>예상 순이익 <strong>${money(r.profit)}</strong></span><span>판매 후 재고 <strong>${number(stock - draft.quantity)}개</strong></span>`;
+}
+function autofillSalePrice() {
+  const form = $('#saleForm'); if (!form) return;
+  const sel = form.querySelector('select[name="productId"]'); const price = form.querySelector('input[name="salePrice"]');
+  if (!sel || !price) return;
+  const product = state.products.find((p) => p.id === String(sel.value));
+  if (product && !price.value) price.value = toNum(product.salePrice) || '';
+  updateSalePreview();
+}
+
+function monthKey(date) { return String(date).slice(0, 7); }
+function renderMonthlyChart() {
+  const el = $('#monthlyChart'); if (!el) return;
+  const { statsMap } = totals();
+  const now = new Date(); const months = [];
+  for (let i = 5; i >= 0; i -= 1) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); }
+  const rev = {}; const prof = {};
+  months.forEach((mk) => { rev[mk] = 0; prof[mk] = 0; });
+  state.sales.forEach((s) => { const mk = monthKey(s.date); if (mk in rev) { const r = saleResult(s, statsMap); rev[mk] += r.netRevenue; prof[mk] += r.profit; } });
+  const maxVal = Math.max(1, ...months.map((mk) => Math.max(rev[mk], prof[mk], 0)));
+  const bars = months.map((mk) => {
+    const rH = Math.max(0, (rev[mk] / maxVal) * 100); const pH = Math.max(0, (prof[mk] / maxVal) * 100);
+    return `<div class="chart-col"><div class="chart-bars"><div class="bar rev" style="height:${rH}%" title="매출 ${money(rev[mk])}"></div><div class="bar prof" style="height:${pH}%" title="순이익 ${money(prof[mk])}"></div></div><span class="chart-x">${Number(mk.slice(5))}월</span></div>`;
+  }).join('');
+  el.innerHTML = `<div class="chart-bars-row">${bars}</div>`;
+}
+function renderBestseller(period) {
+  const { statsMap } = totals();
+  const { from, to } = periodRange(period);
+  const map = {};
+  state.sales.forEach((s) => {
+    if (!inRange(s.date, from, to)) return;
+    const r = saleResult(s, statsMap);
+    if (!map[s.productId]) map[s.productId] = { productId: s.productId, qty: 0, revenue: 0, profit: 0 };
+    map[s.productId].qty += s.quantity; map[s.productId].revenue += r.netRevenue; map[s.productId].profit += r.profit;
+  });
+  const rows = Object.values(map).sort((a, b) => b.qty - a.qty).slice(0, 5);
+  $('#bestsellerPeriod').textContent = periodLabel(period);
+  $('#bestsellerRows').innerHTML = rows.length ? rows.map((r) => `<tr><td>${productName(r.productId)}</td><td>${number(r.qty)}개</td><td>${money(r.revenue)}</td><td class="${r.profit < 0 ? 'money-bad' : ''}">${money(r.profit)}</td></tr>`).join('') : emptyRow(4, '판매 기록이 없습니다.');
+}
+function renderDashboard() {
+  const sum = totals();
+  const { statsMap } = sum;
+  const { from, to } = periodRange(dashboardPeriod);
+  const periodSales = state.sales.filter((s) => inRange(s.date, from, to));
+  const pRevenue = periodSales.reduce((acc, s) => acc + saleResult(s, statsMap).netRevenue, 0);
+  const pProfit = periodSales.reduce((acc, s) => acc + saleResult(s, statsMap).profit, 0);
+  $('#metricInvestment').textContent = money(sum.investment);
+  $('#metricInventoryValue').textContent = money(sum.inventoryValue);
+  $('#metricRevenue').textContent = money(pRevenue);
+  $('#metricProfit').textContent = money(pProfit);
+  const label = periodLabel(dashboardPeriod);
+  $('#metricRevenueLabel').textContent = `${label} 매출`;
+  $('#metricProfitLabel').textContent = `${label} 순이익`;
+  $$('#periodBar .chip').forEach((c) => c.classList.toggle('active', c.dataset.period === dashboardPeriod));
+  renderMonthlyChart();
+  renderBestseller(dashboardPeriod);
+}
 function renderProducts() {
-  $('#productCount').textContent = `${state.products.length}개`;
-  $('#productRows').innerHTML = state.products.length ? state.products.map((p) => {
+  const list = state.products.filter((p) => productMatchesFilter(p) || String(p.id) === String(editingProductId));
+  $('#productCount').textContent = list.length !== state.products.length ? `${list.length}개 / 전체 ${state.products.length}개` : `${state.products.length}개`;
+  $('#productRows').innerHTML = list.length ? list.map((p) => {
     if (String(p.id) === String(editingProductId)) return renderProductEditRow(p);
     return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(p.option || '-')}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p.id)}</td></tr>`;
-  }).join('') : emptyRow(6);
+  }).join('') : emptyRow(6, state.products.length ? '검색 결과가 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderPurchases() {
-  $('#purchaseCount').textContent = `${state.purchases.length}건`;
-  $('#purchaseRows').innerHTML = state.purchases.length ? state.purchases.map((p) => {
+  fillPurchaseFilterProduct();
+  const list = state.purchases.filter((p) => purchaseMatchesFilter(p) || String(p.id) === String(editingPurchaseId));
+  $('#purchaseCount').textContent = list.length !== state.purchases.length ? `${list.length}건 / 전체 ${state.purchases.length}건` : `${state.purchases.length}건`;
+  $('#purchaseRows').innerHTML = list.length ? list.map((p) => {
     if (String(p.id) === String(editingPurchaseId)) return renderPurchaseEditRow(p);
     return `<tr><td>${dateFormatter.format(new Date(p.date))}</td><td>${productName(p.productId)}</td><td>${purchaseSupplier(p) || '-'}</td><td>${number(p.quantity)}개</td><td>${p.currency} ${number(p.unitPrice)}</td><td>${money(p.shipping)}</td><td>${p.memo || '-'}</td><td>${money(purchaseTotal(p))}</td><td>${purchaseActionButtons(p.id)}</td></tr>`;
-  }).join('') : emptyRow(9);
+  }).join('') : emptyRow(9, state.purchases.length ? '조건에 맞는 입고 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderCosts() {
   const labels = { allQty: '수량 기준', allValue: '매입금액 기준', product: '특정 상품', business: '공통비' };
-  $('#costCount').textContent = `${state.costs.length}건`;
-  $('#costRows').innerHTML = state.costs.length ? state.costs.map((c) => {
+  const list = state.costs.filter((c) => costMatchesFilter(c) || String(c.id) === String(editingCostId));
+  $('#costCount').textContent = list.length !== state.costs.length ? `${list.length}건 / 전체 ${state.costs.length}건` : `${state.costs.length}건`;
+  $('#costRows').innerHTML = list.length ? list.map((c) => {
     if (String(c.id) === String(editingCostId)) return renderCostEditRow(c);
-    return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${c.name}</strong><small>${c.memo || '-'}</small></td><td>${c.category}</td><td>${labels[c.allocation]}${c.productId ? ` · ${productName(c.productId)}` : ''}</td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
-  }).join('') : emptyRow(6);
+    return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.memo || '-')}</small></td><td>${escapeHtml(c.category)}</td><td>${labels[c.allocation]}${c.productId ? ` · ${productName(c.productId)}` : ''}</td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
+  }).join('') : emptyRow(6, state.costs.length ? '조건에 맞는 비용 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderSales() {
   const { statsMap } = totals();
@@ -299,13 +419,15 @@ function renderInventory() {
   const low = stats.filter((item) => item.stock <= toNum(item.product.reorderLevel));
   $('#lowStockCount').textContent = `${low.length}개`;
   $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr class="${stockRowClass(i)}"><td>${escapeHtml(i.product.name)}</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.');
+  const badge = $('#navLowStock');
+  if (badge) { badge.textContent = low.length; badge.hidden = low.length === 0; }
 }
-function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderInventory(); }
+function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderAdjustments(); renderInventory(); updateSalePreview(); }
 
 function bindNavigation() { $$('.nav-button').forEach((button) => button.addEventListener('click', () => { $$('.nav-button').forEach((item) => item.classList.remove('active')); $$('.view').forEach((view) => view.classList.remove('active-view')); button.classList.add('active'); $(`#${button.dataset.view}`).classList.add('active-view'); $('#viewTitle').textContent = button.textContent; })); }
 function handleForm(selector, endpoint) { $(selector).addEventListener('submit', async (event) => { event.preventDefault(); try { const next = await api(endpoint, { method: 'POST', body: JSON.stringify(parseForm(event.target)) }); applyState(next); event.target.reset(); const dateInput = event.target.querySelector('input[type="date"]'); if (dateInput) dateInput.value = today(); } catch (err) { alert(err.message); } }); }
-function bindForms() { $$('form input[type="date"]').forEach((input) => { input.value = today(); }); handleForm('#productForm', '/api/products'); handleForm('#purchaseForm', '/api/purchases'); handleForm('#costForm', '/api/costs'); handleForm('#saleForm', '/api/sales'); }
-function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [] }; }
+function bindForms() { $$('form input[type="date"]').forEach((input) => { input.value = today(); }); handleForm('#productForm', '/api/products'); handleForm('#purchaseForm', '/api/purchases'); handleForm('#costForm', '/api/costs'); handleForm('#saleForm', '/api/sales'); handleForm('#adjustmentForm', '/api/adjustments'); }
+function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
   $('#saveData').addEventListener('click', async () => { try { applyState(await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ defaultRate: toNum($('#defaultRate').value) || 190 }) })); } catch (err) { alert(err.message); } });
@@ -415,6 +537,38 @@ function bindActions() {
     ['saleFilterProduct', 'saleFilterFrom', 'saleFilterTo', 'saleFilterQuery'].forEach((id) => { const el = $(`#${id}`); if (el) el.value = ''; });
     renderSales();
   });
+  const bindFilter = (id, obj, key, rerender) => { const el = $(`#${id}`); if (el) el.addEventListener('input', () => { obj[key] = el.value; rerender(); }); };
+  const pq = $('#productFilterQuery');
+  if (pq) pq.addEventListener('input', () => { productFilters.q = pq.value; renderProducts(); });
+  $('#productFilterReset')?.addEventListener('click', () => { productFilters.q = ''; if (pq) pq.value = ''; renderProducts(); });
+  bindFilter('purchaseFilterProduct', purchaseFilters, 'productId', renderPurchases);
+  bindFilter('purchaseFilterFrom', purchaseFilters, 'from', renderPurchases);
+  bindFilter('purchaseFilterTo', purchaseFilters, 'to', renderPurchases);
+  bindFilter('purchaseFilterQuery', purchaseFilters, 'q', renderPurchases);
+  $('#purchaseFilterReset')?.addEventListener('click', () => { purchaseFilters = { productId: '', from: '', to: '', q: '' }; ['purchaseFilterProduct', 'purchaseFilterFrom', 'purchaseFilterTo', 'purchaseFilterQuery'].forEach((id) => { const el = $(`#${id}`); if (el) el.value = ''; }); renderPurchases(); });
+  bindFilter('costFilterCategory', costFilters, 'category', renderCosts);
+  bindFilter('costFilterFrom', costFilters, 'from', renderCosts);
+  bindFilter('costFilterTo', costFilters, 'to', renderCosts);
+  bindFilter('costFilterQuery', costFilters, 'q', renderCosts);
+  $('#costFilterReset')?.addEventListener('click', () => { costFilters = { category: '', from: '', to: '', q: '' }; ['costFilterCategory', 'costFilterFrom', 'costFilterTo', 'costFilterQuery'].forEach((id) => { const el = $(`#${id}`); if (el) el.value = ''; }); renderCosts(); });
+  $$('.quick-dates .chip').forEach((btn) => btn.addEventListener('click', () => {
+    const which = btn.closest('.quick-dates')?.dataset.filter; const range = btn.dataset.range;
+    const now = new Date(); const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    let from = ''; const to = iso(now);
+    if (range === 'today') from = iso(now);
+    else if (range === 'week') { const wd = (now.getDay() + 6) % 7; from = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - wd)); }
+    else if (range === 'month') from = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+    const apply = (obj, ids, rerender) => { obj.from = from; obj.to = to; const [a, b] = ids; if ($(`#${a}`)) $(`#${a}`).value = from; if ($(`#${b}`)) $(`#${b}`).value = to; rerender(); };
+    if (which === 'sale') apply(saleFilters, ['saleFilterFrom', 'saleFilterTo'], renderSales);
+    if (which === 'purchase') apply(purchaseFilters, ['purchaseFilterFrom', 'purchaseFilterTo'], renderPurchases);
+    if (which === 'cost') apply(costFilters, ['costFilterFrom', 'costFilterTo'], renderCosts);
+  }));
+  $$('#periodBar .chip').forEach((btn) => btn.addEventListener('click', () => { dashboardPeriod = btn.dataset.period; renderDashboard(); }));
+  const saleForm = $('#saleForm');
+  if (saleForm) {
+    saleForm.querySelector('select[name="productId"]')?.addEventListener('change', autofillSalePrice);
+    saleForm.addEventListener('input', updateSalePreview);
+  }
   document.body.addEventListener('click', async (event) => { const button = event.target.closest('[data-delete-type]'); if (!button) return; if (!confirm('이 기록을 삭제할까요?')) return; try { applyState(await api(`/api/${button.dataset.deleteType}/${button.dataset.deleteId}`, { method: 'DELETE' })); } catch (err) { alert(err.message); } });
   $('#resetDemo').addEventListener('click', async () => { if (!confirm('현재 클라우드 데이터를 샘플 데이터로 전부 바꿀까요?')) return; try { applyState(await api('/api/import', { method: 'PUT', body: JSON.stringify(seedDemo()) })); } catch (err) { alert(err.message); } });
   $('#exportJson').addEventListener('click', () => download(`kokring-inventory-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
