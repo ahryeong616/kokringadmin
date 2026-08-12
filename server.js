@@ -452,6 +452,33 @@ app.delete('/api/products/:id', async (req, res, next) => {
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
+app.post('/api/products/:id/merge', async (req, res, next) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+    const sourceId = await getActiveProduct(conn, req.params.id);
+    const targetId = await getActiveProduct(conn, req.body?.targetId);
+    if (sourceId === targetId) throw error('같은 상품끼리는 합칠 수 없습니다.');
+    if (await getProductType(conn, sourceId) === 'set' || await getProductType(conn, targetId) === 'set') {
+      throw error('세트(완제품)는 합치기를 지원하지 않습니다. 단일 상품끼리만 합칠 수 있습니다.');
+    }
+    await conn.query('UPDATE purchases SET product_id = ? WHERE product_id = ?', [targetId, sourceId]);
+    await conn.query('UPDATE sales SET product_id = ? WHERE product_id = ?', [targetId, sourceId]);
+    await conn.query('UPDATE costs SET product_id = ? WHERE product_id = ?', [targetId, sourceId]);
+    await conn.query('UPDATE adjustments SET product_id = ? WHERE product_id = ?', [targetId, sourceId]);
+    await conn.query('UPDATE product_components SET component_product_id = ? WHERE component_product_id = ?', [targetId, sourceId]);
+    await conn.query('DELETE FROM product_components WHERE set_product_id = ?', [sourceId]);
+    await conn.query('DELETE FROM products WHERE product_id = ?', [sourceId]);
+    await conn.commit();
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) {
+    if (conn) { try { await conn.rollback(); } catch (_) {} }
+    next(err);
+  } finally { if (conn) conn.release(); }
+});
+
 app.post('/api/purchases', async (req, res, next) => {
   let conn;
   try {

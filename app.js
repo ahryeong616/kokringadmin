@@ -13,6 +13,7 @@ let saleFilters = { productId: '', from: '', to: '', q: '' };
 let purchaseFilters = { productId: '', from: '', to: '', q: '' };
 let costFilters = { category: '', from: '', to: '', q: '' };
 let productFilters = { q: '', category: '' };
+let mergingProductId = '';
 let dashboardPeriod = 'thisMonth';
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -238,7 +239,14 @@ function readInlineCostRow(row) {
 }
 function productActionButtons(product) {
   const editAttr = product.type === 'set' ? `data-edit-set-id="${product.id}"` : `data-edit-product-id="${product.id}"`;
-  return `<div class="row-actions"><button class="edit-button" ${editAttr}>수정</button>${deleteButton('products', product.id)}</div>`;
+  const mergeBtn = product.type !== 'set' ? `<button class="ghost-button sm" data-merge-product-id="${product.id}">합치기</button>` : '';
+  return `<div class="row-actions"><button class="edit-button" ${editAttr}>수정</button>${mergeBtn}${deleteButton('products', product.id)}</div>`;
+}
+function renderProductMergeRow(p) {
+  const others = singleProducts().filter((x) => x.id !== p.id);
+  const opts = `<option value="">합칠 대상 상품 선택</option>${others.map((x) => `<option value="${x.id}">${escapeHtml(productLabel(x))}</option>`).join('')}`;
+  const label = `${escapeHtml(p.name)}${p.option ? ` / ${escapeHtml(p.option)}` : ''}`;
+  return `<tr data-product-merge-id="${p.id}"><td colspan="6"><div class="merge-bar"><strong>「${label}」</strong> 를 다음 상품으로 합치기 →<select class="merge-target inline-select">${opts}</select><button class="primary-button" data-merge-run="${p.id}">합치기 실행</button><button class="cancel-button" data-merge-cancel>취소</button><span class="merge-note">이 상품의 입고·판매·비용·조정 기록이 모두 대상 상품으로 옮겨지고, 이 상품은 삭제됩니다.</span></div></td></tr>`;
 }
 function setComposition(product) {
   return (product.components || []).map((c) => `${productName(c.productId)}${toNum(c.quantity) > 1 ? ` ×${toNum(c.quantity)}` : ''}`).join(' + ');
@@ -505,9 +513,10 @@ function renderDashboard() {
 }
 function renderProducts() {
   fillProductCategoryControls();
-  const list = state.products.filter((p) => productMatchesFilter(p) || String(p.id) === String(editingProductId));
+  const list = state.products.filter((p) => productMatchesFilter(p) || String(p.id) === String(editingProductId) || String(p.id) === String(mergingProductId));
   $('#productCount').textContent = list.length !== state.products.length ? `${list.length}개 / 전체 ${state.products.length}개` : `${state.products.length}개`;
   $('#productRows').innerHTML = list.length ? list.map((p) => {
+    if (String(p.id) === String(mergingProductId) && p.type !== 'set') return renderProductMergeRow(p);
     if (String(p.id) === String(editingProductId) && p.type !== 'set') return renderProductEditRow(p);
     const sub = p.type === 'set' ? (escapeHtml(setComposition(p)) || '<span class="empty-hint">부품 미지정</span>') : escapeHtml(p.option || '-');
     const catTag = p.category ? ` <span class="mini-tag cat">${escapeHtml(p.category)}</span>` : '';
@@ -649,6 +658,29 @@ function bindActions() {
     if (!setBtn) return;
     const product = state.products.find((p) => p.id === String(setBtn.dataset.editSetId));
     if (product) loadSetIntoForm(product);
+  });
+  document.body.addEventListener('click', (event) => {
+    const mb = event.target.closest('[data-merge-product-id]');
+    if (!mb) return;
+    mergingProductId = mb.dataset.mergeProductId; editingProductId = ''; renderProducts();
+  });
+  document.body.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-merge-cancel]')) return;
+    mergingProductId = ''; renderProducts();
+  });
+  document.body.addEventListener('click', async (event) => {
+    const run = event.target.closest('[data-merge-run]');
+    if (!run) return;
+    const row = run.closest('[data-product-merge-id]');
+    const targetId = row?.querySelector('.merge-target')?.value;
+    if (!targetId) { alert('합칠 대상 상품을 선택해 주세요.'); return; }
+    const src = state.products.find((p) => p.id === String(run.dataset.mergeRun));
+    const tgt = state.products.find((p) => p.id === String(targetId));
+    if (!confirm(`「${src ? src.name : ''}」의 모든 입고·판매·비용·조정 기록을 「${tgt ? tgt.name : ''}」(으)로 옮기고, 「${src ? src.name : ''}」은(는) 삭제합니다.\n\n되돌릴 수 없습니다. 진행할까요?`)) return;
+    try {
+      const next = await api(`/api/products/${run.dataset.mergeRun}/merge`, { method: 'POST', body: JSON.stringify({ targetId }) });
+      mergingProductId = ''; applyState(next);
+    } catch (err) { alert(err.message); }
   });
   $('#productType')?.addEventListener('change', toggleComponentEditor);
   $('#addComponentRow')?.addEventListener('click', () => addComponentRow());

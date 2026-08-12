@@ -21,6 +21,7 @@
         <button class="nav-button active" data-view="dashboard">대시보드</button>
         <button class="nav-button" data-view="products">상품</button>
         <button class="nav-button" data-view="purchases">입고</button>
+        <button class="nav-button" data-view="purchaseSummary">입고요약</button>
         <button class="nav-button" data-view="costs">비용</button>
         <button class="nav-button" data-view="sales">판매</button>
         <button class="nav-button" data-view="adjustments">재고조정</button>
@@ -131,10 +132,6 @@
           </form>
         </section>
         <section class="panel">
-          <div class="panel-header"><h3>상품별 입고 요약</h3><span>같은 상품의 날짜별 입고 수량을 한눈에 봅니다.</span></div>
-          <div class="table-wrap"><table><thead><tr><th>상품</th><th>총 입고</th><th>입고 횟수</th><th>날짜별 입고 수량</th></tr></thead><tbody id="purchaseSummaryRows"></tbody></table></div>
-        </section>
-        <section class="panel">
           <div class="panel-header"><h3>입고 내역</h3><span id="purchaseCount">0건</span></div>
           <div class="filter-bar">
             <select id="purchaseFilterProduct" aria-label="상품 필터"><option value="">전체 상품</option></select>
@@ -145,6 +142,13 @@
             <button id="purchaseFilterReset" type="button" class="ghost-button">필터 초기화</button>
           </div>
           <div class="table-wrap"><table><thead><tr><th>날짜</th><th>상품</th><th>공급처</th><th>수량</th><th>통화/매입가</th><th>배송비</th><th>메모</th><th>원화 합계</th><th></th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="purchaseSummary" class="view">
+        <section class="panel">
+          <div class="panel-header"><h3>상품별 입고 요약</h3><span>같은 상품의 날짜별 입고 수량을 한눈에 봅니다.</span></div>
+          <div class="table-wrap"><table><thead><tr><th>상품</th><th>총 입고</th><th>입고 횟수</th><th>날짜별 입고 수량</th></tr></thead><tbody id="purchaseSummaryRows"></tbody></table></div>
         </section>
       </section>
 
