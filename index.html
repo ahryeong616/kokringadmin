@@ -243,6 +243,12 @@
       <section id="inventory" class="view">
         <section class="panel">
           <div class="panel-header"><h3>현재 재고와 상품별 마진</h3><button id="downloadCsv" class="ghost-button">CSV 다운로드</button></div>
+          <div class="filter-bar">
+            <select id="invFilterCategory" aria-label="분류 필터"><option value="">전체 분류</option></select>
+            <select id="invFilterStatus" aria-label="재고 상태"><option value="">전체 재고</option><option value="low">재고부족·품절만</option><option value="ok">정상만</option></select>
+            <input id="invFilterQuery" type="search" placeholder="상품명·코드 검색">
+            <button id="invFilterReset" type="button" class="ghost-button">필터 초기화</button>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>상품</th><th>입고</th><th>판매</th><th>현재 재고</th><th>평균 원가</th><th>판매가</th><th>예상 마진</th><th>마진율</th><th>재고금액</th></tr></thead><tbody id="inventoryRows"></tbody></table></div>
         </section>
       </section>
