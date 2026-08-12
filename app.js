@@ -317,6 +317,10 @@ async function submitProductForm(event) {
     body.components = readComponents();
     if (!body.components.length) { alert('세트 부품을 1개 이상 지정해 주세요.'); return; }
   }
+  if (!editingProductFormId && !isSet) {
+    const dup = state.products.some((p) => p.type !== 'set' && p.name === String(body.name || '').trim() && (p.option || '') === String(body.option || '').trim());
+    if (dup && !confirm('같은 이름·옵션의 상품이 이미 있습니다.\n\n같은 상품을 또 들여온 거라면 새로 추가하지 말고, [입고] 화면에서 그 상품을 선택해 날짜·수량만 추가하세요.\n\n그래도 새 상품으로 추가할까요?')) return;
+  }
   try {
     const editId = editingProductFormId;
     const next = editId
@@ -511,8 +515,24 @@ function renderProducts() {
     return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}${catTag}${setTag}</strong><small>${sub}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p)}</td></tr>`;
   }).join('') : emptyRow(6, state.products.length ? '조건에 맞는 상품이 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
+function shortDate(d) { const parts = String(d).split('-'); return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : d; }
+function renderPurchaseSummary() {
+  const el = $('#purchaseSummaryRows');
+  if (!el) return;
+  const byProduct = new Map();
+  state.purchases.forEach((p) => { if (!byProduct.has(p.productId)) byProduct.set(p.productId, []); byProduct.get(p.productId).push(p); });
+  const rows = state.products.filter((pr) => byProduct.has(pr.id)).map((pr) => {
+    const items = byProduct.get(pr.id).slice().sort((a, b) => a.date.localeCompare(b.date));
+    const total = items.reduce((s, x) => s + x.quantity, 0);
+    const chips = items.map((x) => `<span class="date-chip">${shortDate(x.date)} · ${number(x.quantity)}개</span>`).join('');
+    const catTag = pr.category ? ` <span class="mini-tag cat">${escapeHtml(pr.category)}</span>` : '';
+    return `<tr><td><strong>${escapeHtml(pr.name)}${catTag}</strong><small>${escapeHtml(pr.option || '-')}</small></td><td><strong>${number(total)}개</strong></td><td>${items.length}회</td><td><div class="date-chips">${chips}</div></td></tr>`;
+  });
+  el.innerHTML = rows.length ? rows.join('') : emptyRow(4, '아직 입고 내역이 없습니다.');
+}
 function renderPurchases() {
   fillPurchaseFilterProduct();
+  renderPurchaseSummary();
   const list = state.purchases.filter((p) => purchaseMatchesFilter(p) || String(p.id) === String(editingPurchaseId));
   $('#purchaseCount').textContent = list.length !== state.purchases.length ? `${list.length}건 / 전체 ${state.purchases.length}건` : `${state.purchases.length}건`;
   $('#purchaseRows').innerHTML = list.length ? list.map((p) => {
