@@ -186,6 +186,7 @@ async function ensureSchema() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     await addColumnIfMissing(conn, 'products', 'product_type', "VARCHAR(20) NOT NULL DEFAULT 'single'");
+    await addColumnIfMissing(conn, 'products', 'category', 'VARCHAR(50) NULL');
     await conn.query(`
       CREATE TABLE IF NOT EXISTS product_components (
         component_row_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -211,7 +212,7 @@ async function readState(conn) {
   if (settings.length) state.settings.defaultRate = number(settings[0].setting_value, 190);
 
   const products = await conn.query(`
-    SELECT product_id, product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type
+    SELECT product_id, product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type, category
     FROM products WHERE is_active = 1 ORDER BY product_id ASC
   `);
   const componentRows = await conn.query(
@@ -226,6 +227,7 @@ async function readState(conn) {
     id: String(row.product_id), code: row.product_code, name: row.product_name,
     option: row.product_option || '', supplier: row.supplier || '',
     salePrice: number(row.base_sale_price), reorderLevel: integer(row.reorder_level),
+    category: row.category || '',
     type: row.product_type === 'set' ? 'set' : 'single',
     components: componentsBySet[String(row.product_id)] || [],
   }));
@@ -377,10 +379,10 @@ app.post('/api/products', async (req, res, next) => {
     await conn.beginTransaction();
     const code = await nextProductCode(conn);
     const result = await conn.query(
-      `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type, category)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [code, name, text(req.body?.option, 200) || null, text(req.body?.supplier, 200) || null,
-        number(req.body?.salePrice), integer(req.body?.reorderLevel), isSet ? 'set' : 'single'],
+        number(req.body?.salePrice), integer(req.body?.reorderLevel), isSet ? 'set' : 'single', text(req.body?.category, 50) || null],
     );
     if (isSet) {
       const saved = await saveComponents(conn, String(result.insertId), req.body.components);
@@ -405,10 +407,10 @@ app.patch('/api/products/:id', async (req, res, next) => {
     const productId = await getActiveProduct(conn, req.params.id);
     await conn.query(
       `UPDATE products
-       SET product_name = ?, product_option = ?, supplier = ?, base_sale_price = ?, reorder_level = ?
+       SET product_name = ?, product_option = ?, supplier = ?, base_sale_price = ?, reorder_level = ?, category = ?
        WHERE product_id = ?`,
       [name, text(req.body?.option, 200) || null, text(req.body?.supplier, 200) || null,
-        number(req.body?.salePrice), integer(req.body?.reorderLevel), productId],
+        number(req.body?.salePrice), integer(req.body?.reorderLevel), text(req.body?.category, 50) || null, productId],
     );
     if (req.body?.type !== undefined) {
       const isSet = req.body.type === 'set';
@@ -662,9 +664,9 @@ app.put('/api/import', async (req, res, next) => {
       if (!name) throw error('가져오기 파일에 상품명이 비어 있는 항목이 있습니다.');
       const code = text(product.code, 30) || await nextProductCode(conn);
       const result = await conn.query(
-        `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [code, name, text(product.option, 200) || null, text(product.supplier, 200) || null, number(product.salePrice), integer(product.reorderLevel), product.type === 'set' ? 'set' : 'single'],
+        `INSERT INTO products (product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type, category)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [code, name, text(product.option, 200) || null, text(product.supplier, 200) || null, number(product.salePrice), integer(product.reorderLevel), product.type === 'set' ? 'set' : 'single', text(product.category, 50) || null],
       );
       idMap.set(String(product.id), String(result.insertId));
     }

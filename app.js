@@ -12,7 +12,7 @@ let editingSaleId = '';
 let saleFilters = { productId: '', from: '', to: '', q: '' };
 let purchaseFilters = { productId: '', from: '', to: '', q: '' };
 let costFilters = { category: '', from: '', to: '', q: '' };
-let productFilters = { q: '' };
+let productFilters = { q: '', category: '' };
 let dashboardPeriod = 'thisMonth';
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -247,7 +247,7 @@ function saleActionButtons(id) { return `<div class="row-actions"><button class=
 function renderProductEditRow(p) {
   return `<tr data-product-edit-id="${p.id}">
     <td>${escapeHtml(p.code)}</td>
-    <td><input class="inline-input" name="name" value="${escapeHtml(p.name)}" placeholder="상품명" required><input class="inline-input" name="option" value="${escapeHtml(p.option || '')}" placeholder="옵션/색상/사이즈"></td>
+    <td><input class="inline-input" name="name" value="${escapeHtml(p.name)}" placeholder="상품명" required><input class="inline-input" name="option" value="${escapeHtml(p.option || '')}" placeholder="옵션/색상/사이즈"><input class="inline-input" name="category" list="categoryList" value="${escapeHtml(p.category || '')}" placeholder="분류"></td>
     <td><input class="inline-input" name="supplier" value="${escapeHtml(p.supplier || '')}" placeholder="공급처"></td>
     <td><input class="inline-input compact" name="salePrice" type="number" min="0" step="1" value="${toNum(p.salePrice)}"></td>
     <td><input class="inline-input compact" name="reorderLevel" type="number" min="0" step="1" value="${toNum(p.reorderLevel)}"></td>
@@ -293,6 +293,7 @@ function loadSetIntoForm(product) {
   if ($('#productType')) $('#productType').value = 'set';
   if (form) {
     form.querySelector('[name="name"]').value = product.name || '';
+    form.querySelector('[name="category"]').value = product.category || '';
     form.querySelector('[name="option"]').value = product.option || '';
     form.querySelector('[name="supplier"]').value = product.supplier || '';
     form.querySelector('[name="salePrice"]').value = toNum(product.salePrice) || '';
@@ -311,7 +312,7 @@ async function submitProductForm(event) {
   event.preventDefault();
   const f = parseForm(event.target);
   const isSet = f.type === 'set';
-  const body = { name: f.name, option: f.option, supplier: f.supplier, salePrice: toNum(f.salePrice), reorderLevel: toNum(f.reorderLevel), type: isSet ? 'set' : 'single' };
+  const body = { name: f.name, option: f.option, supplier: f.supplier, category: f.category, salePrice: toNum(f.salePrice), reorderLevel: toNum(f.reorderLevel), type: isSet ? 'set' : 'single' };
   if (isSet) {
     body.components = readComponents();
     if (!body.components.length) { alert('세트 부품을 1개 이상 지정해 주세요.'); return; }
@@ -394,8 +395,24 @@ function costMatchesFilter(c) {
   return true;
 }
 function productMatchesFilter(p) {
+  if (productFilters.category) {
+    if (productFilters.category === '(미분류)') { if (p.category) return false; } else if (p.category !== productFilters.category) return false;
+  }
   if (!productFilters.q) return true;
-  return `${p.code} ${p.name} ${p.option || ''} ${p.supplier || ''}`.toLowerCase().includes(productFilters.q.toLowerCase());
+  return `${p.code} ${p.name} ${p.option || ''} ${p.supplier || ''} ${p.category || ''}`.toLowerCase().includes(productFilters.q.toLowerCase());
+}
+function productCategories() {
+  return [...new Set(state.products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function fillProductCategoryControls() {
+  const cats = productCategories();
+  const sel = $('#productFilterCategory');
+  if (sel) {
+    const hasUncategorized = state.products.some((p) => !p.category);
+    sel.innerHTML = `<option value="">전체 분류</option>${cats.map((c) => `<option value="${escapeHtml(c)}" ${productFilters.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}${hasUncategorized ? `<option value="(미분류)" ${productFilters.category === '(미분류)' ? 'selected' : ''}>(미분류)</option>` : ''}`;
+  }
+  const list = $('#categoryList');
+  if (list) list.innerHTML = cats.map((c) => `<option value="${escapeHtml(c)}"></option>`).join('');
 }
 
 function adjustmentActionButtons(id) { return `<div class="row-actions">${deleteButton('adjustments', id)}</div>`; }
@@ -483,14 +500,16 @@ function renderDashboard() {
   renderBestseller(dashboardPeriod);
 }
 function renderProducts() {
+  fillProductCategoryControls();
   const list = state.products.filter((p) => productMatchesFilter(p) || String(p.id) === String(editingProductId));
   $('#productCount').textContent = list.length !== state.products.length ? `${list.length}개 / 전체 ${state.products.length}개` : `${state.products.length}개`;
   $('#productRows').innerHTML = list.length ? list.map((p) => {
     if (String(p.id) === String(editingProductId) && p.type !== 'set') return renderProductEditRow(p);
     const sub = p.type === 'set' ? (escapeHtml(setComposition(p)) || '<span class="empty-hint">부품 미지정</span>') : escapeHtml(p.option || '-');
-    const tag = p.type === 'set' ? ' <span class="mini-tag">세트</span>' : '';
-    return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}${tag}</strong><small>${sub}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p)}</td></tr>`;
-  }).join('') : emptyRow(6, state.products.length ? '검색 결과가 없습니다.' : '아직 입력된 내용이 없습니다.');
+    const catTag = p.category ? ` <span class="mini-tag cat">${escapeHtml(p.category)}</span>` : '';
+    const setTag = p.type === 'set' ? ' <span class="mini-tag">세트</span>' : '';
+    return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}${catTag}${setTag}</strong><small>${sub}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p)}</td></tr>`;
+  }).join('') : emptyRow(6, state.products.length ? '조건에 맞는 상품이 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderPurchases() {
   fillPurchaseFilterProduct();
@@ -669,7 +688,9 @@ function bindActions() {
   const bindFilter = (id, obj, key, rerender) => { const el = $(`#${id}`); if (el) el.addEventListener('input', () => { obj[key] = el.value; rerender(); }); };
   const pq = $('#productFilterQuery');
   if (pq) pq.addEventListener('input', () => { productFilters.q = pq.value; renderProducts(); });
-  $('#productFilterReset')?.addEventListener('click', () => { productFilters.q = ''; if (pq) pq.value = ''; renderProducts(); });
+  const pc = $('#productFilterCategory');
+  if (pc) pc.addEventListener('change', () => { productFilters.category = pc.value; renderProducts(); });
+  $('#productFilterReset')?.addEventListener('click', () => { productFilters = { q: '', category: '' }; if (pq) pq.value = ''; if (pc) pc.value = ''; renderProducts(); });
   bindFilter('purchaseFilterProduct', purchaseFilters, 'productId', renderPurchases);
   bindFilter('purchaseFilterFrom', purchaseFilters, 'from', renderPurchases);
   bindFilter('purchaseFilterTo', purchaseFilters, 'to', renderPurchases);

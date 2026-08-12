@@ -87,12 +87,14 @@
           <form id="productForm" class="form-grid">
             <select name="type" id="productType"><option value="single">단일 상품</option><option value="set">세트(완제품)</option></select>
             <input name="name" placeholder="상품명" required>
+            <input name="category" list="categoryList" placeholder="분류 (예: 면그립, 키링)">
             <input name="option" placeholder="옵션/색상/사이즈">
             <input name="supplier" placeholder="공급처/앱">
             <input name="salePrice" type="number" min="0" step="1" placeholder="기본 판매가">
             <input name="reorderLevel" type="number" min="0" step="1" placeholder="재주문 기준 수량">
             <button class="primary-button" type="submit" id="productSubmit">상품 추가</button>
           </form>
+          <datalist id="categoryList"></datalist>
           <div id="componentEditor" class="component-editor" hidden>
             <div class="component-editor-head"><strong>세트 구성 부품</strong><span>완제품 1개에 들어가는 부품과 수량을 지정하세요. (예: 면그립 검정 1개 + 펭귄키링 1개)</span></div>
             <div id="componentRows"></div>
@@ -105,8 +107,9 @@
         <section class="panel">
           <div class="panel-header"><h3>상품 목록</h3><span id="productCount">0개</span></div>
           <div class="filter-bar">
+            <select id="productFilterCategory" aria-label="분류 필터"><option value="">전체 분류</option></select>
             <input id="productFilterQuery" type="search" placeholder="상품명·코드·공급처 검색">
-            <button id="productFilterReset" type="button" class="ghost-button">검색 초기화</button>
+            <button id="productFilterReset" type="button" class="ghost-button">필터 초기화</button>
           </div>
           <div class="table-wrap"><table><thead><tr><th>코드</th><th>상품</th><th>공급처</th><th>판매가</th><th>재주문</th><th></th></tr></thead><tbody id="productRows"></tbody></table></div>
         </section>
