@@ -223,7 +223,7 @@ function costAllocationOptions(selected = '') {
 function renderCostEditRow(c) {
   return `<tr data-cost-edit-id="${c.id}">
     <td><input class="inline-input compact" name="date" type="date" value="${escapeHtml(c.date)}" required></td>
-    <td><input class="inline-input" name="name" value="${escapeHtml(c.name)}" placeholder="비용명" required><input class="inline-input" name="memo" value="${escapeHtml(c.memo || '')}" placeholder="메모"></td>
+    <td><div class="stack-inputs"><input class="inline-input" name="name" value="${escapeHtml(c.name)}" placeholder="비용명" required><input class="inline-input" name="memo" value="${escapeHtml(c.memo || '')}" placeholder="메모"></div></td>
     <td><select class="inline-select" name="category">${costCategoryOptions(c.category)}</select></td>
     <td>
       <select class="inline-select" name="allocation">${costAllocationOptions(c.allocation)}</select>
@@ -247,7 +247,7 @@ function saleActionButtons(id) { return `<div class="row-actions"><button class=
 function renderProductEditRow(p) {
   return `<tr data-product-edit-id="${p.id}">
     <td>${escapeHtml(p.code)}</td>
-    <td><input class="inline-input" name="name" value="${escapeHtml(p.name)}" placeholder="상품명" required><input class="inline-input" name="option" value="${escapeHtml(p.option || '')}" placeholder="옵션/색상/사이즈"><input class="inline-input" name="category" list="categoryList" value="${escapeHtml(p.category || '')}" placeholder="분류"></td>
+    <td><div class="stack-inputs"><input class="inline-input" name="name" value="${escapeHtml(p.name)}" placeholder="상품명" required><input class="inline-input" name="option" value="${escapeHtml(p.option || '')}" placeholder="옵션/색상/사이즈"><input class="inline-input" name="category" list="categoryList" value="${escapeHtml(p.category || '')}" placeholder="분류"></div></td>
     <td><input class="inline-input" name="supplier" value="${escapeHtml(p.supplier || '')}" placeholder="공급처"></td>
     <td><input class="inline-input compact" name="salePrice" type="number" min="0" step="1" value="${toNum(p.salePrice)}"></td>
     <td><input class="inline-input compact" name="reorderLevel" type="number" min="0" step="1" value="${toNum(p.reorderLevel)}"></td>
