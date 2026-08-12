@@ -14,6 +14,7 @@ let purchaseFilters = { productId: '', from: '', to: '', q: '' };
 let costFilters = { category: '', from: '', to: '', q: '' };
 let productFilters = { q: '', category: '' };
 let mergingProductId = '';
+const selectedProductIds = new Set();
 let dashboardPeriod = 'thisMonth';
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -511,9 +512,16 @@ function renderDashboard() {
   renderMonthlyChart();
   renderBestseller(dashboardPeriod);
 }
+function productSortKey(p) { return [p.category ? p.category : '￿￿', p.name || '', p.code || '']; }
+function updateBulkBar(list) {
+  const cnt = $('#bulkCount'); if (cnt) cnt.textContent = `선택 ${selectedProductIds.size}개`;
+  const all = $('#productSelectAll'); if (all) { const ids = list.map((p) => p.id); all.checked = ids.length > 0 && ids.every((id) => selectedProductIds.has(id)); }
+  const apply = $('#bulkApply'); if (apply) apply.disabled = selectedProductIds.size === 0;
+}
 function renderProducts() {
   fillProductCategoryControls();
   const list = state.products.filter((p) => productMatchesFilter(p) || String(p.id) === String(editingProductId) || String(p.id) === String(mergingProductId));
+  list.sort((a, b) => { const ka = productSortKey(a); const kb = productSortKey(b); return ka[0].localeCompare(kb[0], 'ko') || ka[1].localeCompare(kb[1], 'ko') || ka[2].localeCompare(kb[2]); });
   $('#productCount').textContent = list.length !== state.products.length ? `${list.length}개 / 전체 ${state.products.length}개` : `${state.products.length}개`;
   $('#productRows').innerHTML = list.length ? list.map((p) => {
     if (String(p.id) === String(mergingProductId) && p.type !== 'set') return renderProductMergeRow(p);
@@ -521,8 +529,10 @@ function renderProducts() {
     const sub = p.type === 'set' ? (escapeHtml(setComposition(p)) || '<span class="empty-hint">부품 미지정</span>') : escapeHtml(p.option || '-');
     const catTag = p.category ? ` <span class="mini-tag cat">${escapeHtml(p.category)}</span>` : '';
     const setTag = p.type === 'set' ? ' <span class="mini-tag">세트</span>' : '';
-    return `<tr><td>${p.code}</td><td><strong>${escapeHtml(p.name)}${catTag}${setTag}</strong><small>${sub}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p)}</td></tr>`;
+    const checked = selectedProductIds.has(p.id) ? 'checked' : '';
+    return `<tr><td><label class="row-check"><input type="checkbox" class="product-check" data-id="${p.id}" ${checked}>${p.code}</label></td><td><strong>${escapeHtml(p.name)}${catTag}${setTag}</strong><small>${sub}</small></td><td>${escapeHtml(p.supplier || '-')}</td><td>${money(p.salePrice)}</td><td>${number(p.reorderLevel)}개</td><td>${productActionButtons(p)}</td></tr>`;
   }).join('') : emptyRow(6, state.products.length ? '조건에 맞는 상품이 없습니다.' : '아직 입력된 내용이 없습니다.');
+  updateBulkBar(list);
 }
 function shortDate(d) { const parts = String(d).split('-'); return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : d; }
 function renderPurchaseSummary() {
@@ -743,6 +753,38 @@ function bindActions() {
   const pc = $('#productFilterCategory');
   if (pc) pc.addEventListener('change', () => { productFilters.category = pc.value; renderProducts(); });
   $('#productFilterReset')?.addEventListener('click', () => { productFilters = { q: '', category: '' }; if (pq) pq.value = ''; if (pc) pc.value = ''; renderProducts(); });
+  document.body.addEventListener('change', (event) => {
+    const cb = event.target.closest('.product-check');
+    if (!cb) return;
+    if (cb.checked) selectedProductIds.add(cb.dataset.id); else selectedProductIds.delete(cb.dataset.id);
+    renderProducts();
+  });
+  $('#productSelectAll')?.addEventListener('change', (event) => {
+    const list = state.products.filter((p) => productMatchesFilter(p));
+    if (event.target.checked) list.forEach((p) => selectedProductIds.add(p.id)); else list.forEach((p) => selectedProductIds.delete(p.id));
+    renderProducts();
+  });
+  $('#bulkClear')?.addEventListener('click', () => { selectedProductIds.clear(); renderProducts(); });
+  $('#bulkField')?.addEventListener('change', () => {
+    const f = $('#bulkField').value; const v = $('#bulkValue'); if (!v) return;
+    if (f === 'salePrice' || f === 'reorderLevel') { v.type = 'number'; v.removeAttribute('list'); v.placeholder = f === 'salePrice' ? '바꿀 판매가' : '바꿀 재주문 수량'; }
+    else { v.type = 'text'; v.placeholder = f === 'supplier' ? '바꿀 공급처' : '바꿀 분류'; if (f === 'category') v.setAttribute('list', 'categoryList'); else v.removeAttribute('list'); }
+    v.value = '';
+  });
+  $('#bulkApply')?.addEventListener('click', async () => {
+    const field = $('#bulkField')?.value; const value = $('#bulkValue')?.value ?? '';
+    const ids = [...selectedProductIds];
+    if (!ids.length) { alert('먼저 상품을 선택해 주세요.'); return; }
+    if ((field === 'salePrice' || field === 'reorderLevel') && value === '') { alert('바꿀 값을 입력해 주세요.'); return; }
+    const labels = { salePrice: '판매가', reorderLevel: '재주문 기준', supplier: '공급처', category: '분류' };
+    if (!confirm(`선택한 ${ids.length}개 상품의 ${labels[field]}을(를) "${value || '(비움)'}"(으)로 바꿉니다.\n\n진행할까요?`)) return;
+    try {
+      const next = await api('/api/products/bulk', { method: 'POST', body: JSON.stringify({ ids, field, value }) });
+      selectedProductIds.clear();
+      if ($('#bulkValue')) $('#bulkValue').value = '';
+      applyState(next);
+    } catch (err) { alert(err.message); }
+  });
   bindFilter('purchaseFilterProduct', purchaseFilters, 'productId', renderPurchases);
   bindFilter('purchaseFilterFrom', purchaseFilters, 'from', renderPurchases);
   bindFilter('purchaseFilterTo', purchaseFilters, 'to', renderPurchases);

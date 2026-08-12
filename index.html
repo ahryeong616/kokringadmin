@@ -112,6 +112,15 @@
             <input id="productFilterQuery" type="search" placeholder="상품명·코드·공급처 검색">
             <button id="productFilterReset" type="button" class="ghost-button">필터 초기화</button>
           </div>
+          <div class="bulk-bar">
+            <label class="row-check"><input type="checkbox" id="productSelectAll"> 현재 목록 전체선택</label>
+            <span id="bulkCount" class="bulk-count">선택 0개</span>
+            <span class="bulk-sep">일괄 변경 →</span>
+            <select id="bulkField"><option value="salePrice">판매가</option><option value="reorderLevel">재주문 기준</option><option value="supplier">공급처</option><option value="category">분류</option></select>
+            <input id="bulkValue" type="number" placeholder="바꿀 판매가">
+            <button id="bulkApply" type="button" class="primary-button" disabled>선택 상품 일괄 적용</button>
+            <button id="bulkClear" type="button" class="ghost-button">선택 해제</button>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>코드</th><th>상품</th><th>공급처</th><th>판매가</th><th>재주문</th><th></th></tr></thead><tbody id="productRows"></tbody></table></div>
         </section>
       </section>

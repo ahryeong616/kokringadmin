@@ -452,6 +452,26 @@ app.delete('/api/products/:id', async (req, res, next) => {
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
+app.post('/api/products/bulk', async (req, res, next) => {
+  let conn;
+  try {
+    const cols = { salePrice: 'base_sale_price', reorderLevel: 'reorder_level', supplier: 'supplier', category: 'category' };
+    const field = req.body?.field;
+    if (!cols[field]) throw error('일괄 수정할 항목이 올바르지 않습니다.');
+    const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Number.isFinite);
+    if (!ids.length) throw error('수정할 상품을 선택해 주세요.');
+    let value;
+    if (field === 'salePrice') value = number(req.body?.value);
+    else if (field === 'reorderLevel') value = integer(req.body?.value);
+    else value = text(req.body?.value, field === 'category' ? 50 : 200) || null;
+    conn = await pool.getConnection();
+    const placeholders = ids.map(() => '?').join(',');
+    await conn.query(`UPDATE products SET ${cols[field]} = ? WHERE product_id IN (${placeholders}) AND is_active = 1`, [value, ...ids]);
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
 app.post('/api/products/:id/merge', async (req, res, next) => {
   let conn;
   try {
