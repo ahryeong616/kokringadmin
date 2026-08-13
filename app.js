@@ -16,6 +16,7 @@ let productFilters = { q: '', category: '' };
 let mergingProductId = '';
 const selectedProductIds = new Set();
 let dashboardPeriod = 'thisMonth';
+let selectedChartMonth = '';
 let inventoryFilters = { category: '', status: '', q: '' };
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -496,9 +497,25 @@ function renderMonthlyChart() {
   const maxVal = Math.max(1, ...months.map((mk) => Math.max(rev[mk], prof[mk], 0)));
   const bars = months.map((mk) => {
     const rH = Math.max(0, (rev[mk] / maxVal) * 100); const pH = Math.max(0, (prof[mk] / maxVal) * 100);
-    return `<div class="chart-col"><div class="chart-bars"><div class="bar rev" style="height:${rH}%" title="매출 ${money(rev[mk])}"></div><div class="bar prof" style="height:${pH}%" title="순이익 ${money(prof[mk])}"></div></div><span class="chart-x">${Number(mk.slice(5))}월</span></div>`;
+    const active = mk === selectedChartMonth ? ' active' : '';
+    return `<div class="chart-col${active}" data-month="${mk}" role="button" tabindex="0" title="${Number(mk.slice(5))}월 · 매출 ${money(rev[mk])} · 순이익 ${money(prof[mk])} (클릭하면 상세)"><div class="chart-bars"><div class="bar rev" style="height:${rH}%"></div><div class="bar prof" style="height:${pH}%"></div></div><span class="chart-x">${Number(mk.slice(5))}월</span></div>`;
   }).join('');
-  el.innerHTML = `<div class="chart-bars-row">${bars}</div>`;
+  el.innerHTML = `<div class="chart-bars-row">${bars}</div><div id="monthlyDetail" class="chart-detail"></div>`;
+  renderMonthlyDetail(selectedChartMonth);
+}
+function renderMonthlyDetail(mk) {
+  const box = $('#monthlyDetail'); if (!box) return;
+  if (!mk) { box.innerHTML = '<span class="chart-hint">막대(월)를 클릭하면 그 달의 매출·순이익과 많이 팔린 상품이 여기에 나옵니다.</span>'; return; }
+  const { statsMap } = totals();
+  const sales = state.sales.filter((s) => monthKey(s.date) === mk);
+  const rev = sales.reduce((a, s) => a + saleResult(s, statsMap).netRevenue, 0);
+  const prof = sales.reduce((a, s) => a + saleResult(s, statsMap).profit, 0);
+  const map = {};
+  sales.forEach((s) => { const r = saleResult(s, statsMap); if (!map[s.productId]) map[s.productId] = { qty: 0, profit: 0 }; map[s.productId].qty += s.quantity; map[s.productId].profit += r.profit; });
+  const top = Object.entries(map).sort((a, b) => b[1].qty - a[1].qty).slice(0, 6);
+  const label = `${Number(mk.slice(5))}월`;
+  const rows = top.length ? top.map(([pid, v]) => `<tr><td>${productName(pid)}</td><td>${number(v.qty)}개</td><td class="${v.profit < 0 ? 'money-bad' : ''}">${money(v.profit)}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">이 달은 판매가 없습니다.</td></tr>';
+  box.innerHTML = `<div class="chart-detail-head"><strong>${label}</strong> · 매출 <strong>${money(rev)}</strong> · 순이익 <strong>${money(prof)}</strong> · 판매 ${sales.length}건</div><div class="table-wrap"><table><thead><tr><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function renderBestseller(period) {
   const { statsMap } = totals();
@@ -830,6 +847,12 @@ function bindActions() {
     if (which === 'cost') apply(costFilters, ['costFilterFrom', 'costFilterTo'], renderCosts);
   }));
   $$('#periodBar .chip').forEach((btn) => btn.addEventListener('click', () => { dashboardPeriod = btn.dataset.period; renderDashboard(); }));
+  document.body.addEventListener('click', (event) => {
+    const col = event.target.closest('.chart-col[data-month]');
+    if (!col) return;
+    selectedChartMonth = selectedChartMonth === col.dataset.month ? '' : col.dataset.month;
+    renderMonthlyChart();
+  });
   const saleForm = $('#saleForm');
   if (saleForm) {
     saleForm.querySelector('select[name="productId"]')?.addEventListener('change', autofillSalePrice);
