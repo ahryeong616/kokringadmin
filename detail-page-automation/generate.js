@@ -74,7 +74,8 @@ async function main() {
       const img = collect(opts.images || path.join(dir, 'images'));
       const ctx = { p, img };
 
-      console.log(`\n[${slug}] ${p.name.ko} — 형식 ${templates.length}종`);
+      const title = (p.cover && p.cover.ko) || (p.brand && p.brand.ko) || slug;
+      console.log(`\n[${slug}] ${title} — 형식 ${templates.length}종`);
 
       for (const t of templates) {
         const outPath = path.join(opts.out, slug, `${slug}_${t.id}.png`);

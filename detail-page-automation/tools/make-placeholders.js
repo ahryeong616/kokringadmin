@@ -9,15 +9,21 @@ const path = require('path');
 const outDir = process.argv[2] || path.join(__dirname, '..', 'products', 'graydoll', 'images');
 
 const SHOTS = [
-  ['hero_01',    'HERO',     900, 1100],
-  ['angle_01',   'FRONT',    600, 750],
-  ['angle_02',   'SIDE',     600, 750],
-  ['angle_03',   'BACK',     600, 750],
-  ['angle_04',   'ANGLE',    600, 750],
-  ['closeup_01', 'DETAIL 1', 800, 600],
-  ['closeup_02', 'DETAIL 2', 800, 600],
-  ['life_01',    'SCENE 1',  800, 600],
-  ['life_02',    'SCENE 2',  800, 600],
+  ['hero_01',    'HERO',      900, 1400],
+  ['front_01',   'FRONT',     700, 850],
+  ['side_01',    'SIDE A',    700, 850],
+  ['side_02',    'SIDE B',    700, 850],
+  ['closeup_01', 'DETAIL 1',  800, 600],
+  ['closeup_02', 'DETAIL 2',  800, 600],
+  ['closeup_03', 'DETAIL 3', 1200, 600],
+  ['closeup_04', 'DETAIL 4',  800, 600],
+  ['closeup_05', 'DETAIL 5',  800, 600],
+  ['life_01',    'SCENE 1',  1200, 600],
+  ['life_02',    'SCENE 2',  1200, 600],
+  ['life_03',    'SCENE 3',  1200, 600],
+  ['life_04',    'SCENE 4',  1200, 600],
+  ['people_01',  'MODEL 1',   700, 900],
+  ['people_02',  'MODEL 2',   700, 900],
 ];
 
 const svg = (label, w, h) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">

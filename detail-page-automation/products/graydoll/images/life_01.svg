@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
       <stop offset="0%" stop-color="#fbfbfc"/><stop offset="55%" stop-color="#eef0f2"/><stop offset="100%" stop-color="#dfe3e7"/>
@@ -7,10 +7,10 @@
       <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#c8ccd1"/>
     </linearGradient>
   </defs>
-  <rect width="800" height="600" fill="url(#bg)"/>
-  <rect x="576" y="0" width="224.00000000000003" height="600" fill="#2b3138" opacity="0.85"/>
-  <circle cx="352" cy="180" r="102.00000000000001" fill="url(#obj)"/>
-  <rect x="319" y="180" width="66" height="252"
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <rect x="864" y="0" width="336.00000000000006" height="600" fill="#2b3138" opacity="0.85"/>
+  <circle cx="528" cy="180" r="102.00000000000001" fill="url(#obj)"/>
+  <rect x="495" y="180" width="66" height="252"
         rx="33" fill="url(#obj)"/>
   <text x="50%" y="566" text-anchor="middle" font-family="monospace" font-size="27"
         fill="#8a9099" letter-spacing="3">SCENE 1 · PLACEHOLDER</text>

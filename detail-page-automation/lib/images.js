@@ -6,10 +6,12 @@ const EXT = /\.(png|jpe?g|webp|avif|gif|svg)$/i;
 
 // 파일명 앞부분으로 역할을 지정할 수 있다. (예: hero_01.jpg, angle_front.png)
 const ROLE_PATTERNS = [
-  ['hero',     /^(hero|main|대표|메인)/i],
-  ['angle',    /^(angle|side|back|front|각도|측면|후면)/i],
-  ['closeup',  /^(close ?up|detail|디테일|클로즈업)/i],
-  ['lifestyle',/^(life ?style|scene|package|연출|패키지)/i],
+  ['hero',    /^(hero|main|cover|대표|메인|표지)/i],
+  ['front',   /^(front|정면)/i],
+  ['side',    /^(side|back|측면|후면|옆)/i],
+  ['closeup', /^(close ?up|detail|디테일|클로즈업)/i],
+  ['life',    /^(life|scene|package|연출|패키지|사용)/i],
+  ['people',  /^(people|model|person|착용|모델)/i],
 ];
 
 function roleOf(filename) {
@@ -36,7 +38,7 @@ function collect(imageDir) {
     throw new Error(`이미지 폴더가 비어 있습니다: ${imageDir}`);
   }
 
-  const buckets = { hero: [], angle: [], closeup: [], lifestyle: [] };
+  const buckets = { hero: [], front: [], side: [], closeup: [], life: [], people: [] };
   const unassigned = [];
 
   for (const f of files) {
@@ -47,14 +49,14 @@ function collect(imageDir) {
   }
 
   // 접두사가 없는 이미지는 비어 있는 역할부터 순서대로 채운다.
-  const fillOrder = [['hero', 1], ['angle', 4], ['closeup', 2], ['lifestyle', 2]];
+  const fillOrder = [['hero', 1], ['front', 1], ['side', 2], ['closeup', 5], ['life', 4], ['people', 2]];
   for (const [role, want] of fillOrder) {
     while (buckets[role].length < want && unassigned.length > 0) {
       buckets[role].push(unassigned.shift());
     }
   }
-  // 남은 이미지는 angle 에 몰아둔다.
-  buckets.angle.push(...unassigned);
+  // 남은 이미지는 연출컷으로 돌린다.
+  buckets.life.push(...unassigned);
 
   const all = files.map((f) => toFileUrl(path.join(imageDir, f)));
 

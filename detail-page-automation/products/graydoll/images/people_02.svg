@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="900" viewBox="0 0 700 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%" stop-color="#fbfbfc"/><stop offset="55%" stop-color="#eef0f2"/><stop offset="100%" stop-color="#dfe3e7"/>
+    </linearGradient>
+    <linearGradient id="obj" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#c8ccd1"/>
+    </linearGradient>
+  </defs>
+  <rect width="700" height="900" fill="url(#bg)"/>
+  <rect x="504" y="0" width="196.00000000000003" height="900" fill="#2b3138" opacity="0.85"/>
+  <circle cx="308" cy="270" r="119.00000000000001" fill="url(#obj)"/>
+  <rect x="269.5" y="270" width="77" height="378"
+        rx="38.5" fill="url(#obj)"/>
+  <text x="50%" y="866" text-anchor="middle" font-family="monospace" font-size="32"
+        fill="#8a9099" letter-spacing="3">MODEL 2 · PLACEHOLDER</text>
+</svg>

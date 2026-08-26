@@ -1,35 +1,81 @@
 {
   "slug": "graydoll",
-  "brand": "KOKRING",
-  "name": {
-    "en": "Gray Doll Grip Cover",
-    "ko": "그레이돌 그립커버"
+  "brand": { "ko": "콕링", "en": "COOKRING" },
+
+  "cover": {
+    "ko": "콕링",
+    "en": ["Shuttlecock", "Grip Cover"],
+    "tagEn": "Make every game more joyful",
+    "tagKo": "라켓에도 취향이 필요하니까"
   },
-  "tagline": "라켓 손잡이를 지키는 가장 사랑스러운 방법",
-  "lead": "부드러운 보아 원단의 인형과 촘촘한 립 니트 커버가 하나로. 라켓을 세워두는 순간마다 시선이 머무는, 실용과 취향을 함께 담은 그립커버입니다.",
-  "specs": [
-    { "label": "소재",  "ko": "보아 부클 폴리에스터 · 립 니트 아크릴", "en": "Boucle Polyester · Rib Knit Acrylic" },
-    { "label": "구성",  "ko": "그립커버 1개 · 인형 부착형 · 전용 파우치", "en": "1 Grip Cover · Attached Doll · Pouch" },
-    { "label": "호환",  "ko": "배드민턴 · 테니스 · 골프 드라이버 그립", "en": "Badminton · Tennis · Golf Driver" },
-    { "label": "특징",  "ko": "미끄럼 방지 립 조직 · 땀 흡수 · 손세탁 가능", "en": "Anti-slip Rib · Sweat Absorbing · Hand Wash" },
-    { "label": "사이즈", "ko": "커버 120 × 34.5mm · 인형 높이 약 75mm", "en": "Cover 120 × 34.5mm · Doll H 75mm" },
-    { "label": "디자인", "ko": "5가지 컬러웨이 전개", "en": "Available in 5 Colorways" }
-  ],
-  "features": [
-    { "title": "촘촘한 립 니트 조직", "desc": "손에 착 감기는 립 조직이 그립을 단단히 잡아주고, 플레이 중 흐른 땀을 빠르게 흡수합니다." },
-    { "title": "포근한 보아 부클 인형", "desc": "결이 살아 있는 보아 부클 원단으로 만들어 오래 만져도 형태가 무너지지 않습니다." },
-    { "title": "라켓을 가리지 않는 설계", "desc": "그립 끝에서 12cm만 감싸 스윙 밸런스에 영향을 주지 않습니다." }
-  ],
-  "colors": [
-    { "ko": "크림 아이보리", "en": "Cream Ivory",  "hex": "#F2EBDD" },
-    { "ko": "헤더 그레이",   "en": "Heather Grey",  "hex": "#9C9C9C" },
-    { "ko": "차콜 블랙",     "en": "Charcoal Black","hex": "#1C1C1E" },
-    { "ko": "실버 미스트",   "en": "Silver Mist",   "hex": "#C9CDD2" },
-    { "ko": "퓨어 화이트",   "en": "Pure White",    "hex": "#FBFBFB" }
-  ],
-  "notice": [
-    "모니터 환경에 따라 실제 색상과 차이가 있을 수 있습니다.",
-    "인형 부착부는 손세탁 후 그늘에서 건조해 주세요.",
-    "수제 봉제 특성상 개체마다 미세한 차이가 있습니다."
-  ]
+
+  "problem": {
+    "headline": "이런 경험, 있으신가요?",
+    "items": [
+      { "no": "01", "icon": "rackets", "title": "비슷한 라켓이\n너무 많을 때" },
+      { "no": "02", "icon": "racket",  "title": "내 라켓이\n평범해 보일 때" },
+      { "no": "03", "icon": "gift",    "title": "작은 포인트로\n취향을 표현하고 싶을 때" }
+    ],
+    "story": {
+      "headline": "배드민턴을\n더 즐겁게",
+      "body": "콕링은 작은 아이디어에서 시작했습니다.\n매일 드는 라켓이\n조금 더 특별해지고,\n경기 시간이, 일상이\n더 즐거워지기를 바라며."
+    }
+  },
+
+  "detail": {
+    "eyebrow": "PRODUCT DETAIL",
+    "headline": "작은 디테일이\n특별함을 만듭니다",
+    "front": { "label": "FRONT", "desc": "콕링의 매력이\n한눈에 보이는\n정면 디자인" },
+    "side":  { "label": "SIDE",  "desc": "옆모습까지\n사랑스러운\n입체 디자인" },
+    "points": [
+      { "wide": false, "title": "셔틀콕처럼 살린 깃 표현", "desc": "입체감을 살린 깃 디자인으로 귀여움을 더했어요" },
+      { "wide": false, "title": "포인트 그린 밴드",       "desc": "깔끔한 그린 밴드가 포인트가 되어 세련된 느낌을 줍니다" },
+      { "wide": true,  "title": "자수 미소와 볼터치",      "desc": "정성스러운 자수 미소와 사랑스러운 볼터치가 콕콕이의 매력 포인트에요" },
+      { "wide": false, "title": "통통한 브라운 발",        "desc": "앙증맞은 브라운 발이 콕콕이의 귀여움을 완성해요" },
+      { "wide": false, "title": "부드러운 플러시 원단",     "desc": "폭신하고 부드러운 플러시 소재로 기분 좋은 촉감을 느낄 수 있어요" }
+    ]
+  },
+
+  "lifestyle": {
+    "headline": "배드민턴 가는 길이\n더 즐거워집니다",
+    "reasonsTitle": "콕링을 선택하는 이유",
+    "reasons": [
+      { "icon": "racket", "label": "라켓 식별" },
+      { "icon": "smile",  "label": "개성 표현" },
+      { "icon": "shield", "label": "손잡이 보호" },
+      { "icon": "gift",   "label": "선물 추천" }
+    ]
+  },
+
+  "gift": {
+    "eyebrow": "배드민턴을 좋아하는 사람이라면",
+    "headline": "선물로도 좋은 콕링",
+    "sub": "소중한 사람에게 즐거운 배드민턴을 선물하세요.",
+    "recipients": [
+      { "icon": "woman", "label": "여자친구" },
+      { "icon": "man",   "label": "친구" },
+      { "icon": "group", "label": "동호회 회원" },
+      { "icon": "shoe",  "label": "운동 메이트" },
+      { "icon": "book",  "label": "배드민턴 입문자" }
+    ],
+    "reviewsTitle": "먼저 만난 분들의 후기",
+    "reviews": [
+      { "quote": "라켓에 꽂자마자\n다들 어디서 샀냐고\n물어봐요.", "stars": 5 },
+      { "quote": "친구 선물했는데\n너무 좋아했어요.",              "stars": 5 },
+      { "quote": "배드민턴 갈 때마다\n기분 좋아져요.",             "stars": 5 }
+    ],
+    "faqTitle": "자주 묻는 질문",
+    "faq": [
+      { "q": "모든 라켓에 사용 가능한가요?", "a": "일반적인 배드민턴 라켓 손잡이에 사용 가능합니다." },
+      { "q": "잘 고정되나요?",             "a": "라켓 손잡이 끝에 끼우는 방식으로 자연스럽게 고정됩니다." },
+      { "q": "세탁 가능한가요?",           "a": "오염 시 부드럽게 손세탁을 권장합니다." },
+      { "q": "털 빠짐이 있나요?",          "a": "제작 공정상 미세한 털 날림은 있을 수 있으나 사용에는 문제가 없습니다." },
+      { "q": "선물용으로 구매 가능한가요?", "a": "선물용으로도 많은 고객님들이 구매하고 있습니다." }
+    ],
+    "cta": {
+      "headline": "오늘의 배드민턴을\n더 특별하게",
+      "body": "작은 셔틀콕 하나로\n라켓이 더 즐거워집니다",
+      "button": "지금 구매하기"
+    }
+  }
 }
