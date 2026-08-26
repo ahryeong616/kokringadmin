@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>현장 시세조사 · 사진 자동입력</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{
+    --bg:#f4f6fb; --panel:#fff; --line:#e2e7f0; --ink:#151b26; --muted:#66708a;
+    --brand:#2f6bff; --brand-soft:#e8efff; --good:#0f9d58; --warn:#e8a33d; --bad:#d93a3a;
+    --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;-webkit-text-size-adjust:100%}
+  .wrap{max-width:1240px;margin:0 auto;padding:18px 16px 80px}
+  h1{font-size:20px;margin:0}
+  h2{font-size:16px;margin:0 0 12px}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .badge{background:var(--brand);color:#fff;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-weight:700}
+  .brand{display:flex;gap:11px;align-items:center}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+  label.f{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  input,select,textarea,button{font:inherit;color:inherit}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
+  .grid{display:grid;gap:11px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)} .g6{grid-template-columns:repeat(6,1fr)}
+  @media(max-width:860px){.g3,.g4,.g6{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.g2,.g3,.g4,.g6{grid-template-columns:1fr}}
+  button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 14px;font-weight:600}
+  button:hover{border-color:#c9d2e3}
+  .primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .primary:hover{background:#2559dd;border-color:#2559dd}
+  .danger{color:var(--bad)}
+  .row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .drop{border:2px dashed #c3d0ea;border-radius:var(--radius);background:linear-gradient(180deg,#fbfcff,#f3f7ff);
+        padding:26px 18px;text-align:center;transition:.15s}
+  .drop.hot{border-color:var(--brand);background:var(--brand-soft)}
+  .drop .big{font-size:34px;line-height:1}
+  .drop p{margin:8px 0 0;color:var(--muted);font-size:13px}
+  .hidden{display:none!important}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}
+  .pill.ok{background:#e6f6ec;color:var(--good)} .pill.no{background:#fdeaea;color:var(--bad)}
+  .pill.mid{background:#fdf3e2;color:#96660f}
+  .engine{display:flex;gap:8px;flex-wrap:wrap}
+  .engine button{flex:1;min-width:150px}
+  .engine button.on{background:var(--brand-soft);border-color:var(--brand);color:#1b4bc4}
+  .log{background:#0f1626;color:#cfe0ff;border-radius:10px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+       max-height:150px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+  .cardlist{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
+  .pend{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fcfdff}
+  .pend .thumb{width:100%;height:150px;object-fit:cover;border-radius:9px;background:#eef1f7;margin-bottom:10px}
+  .pend .grid{gap:8px}
+  .pend input,.pend select{padding:7px 9px;font-size:13.5px}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:1180px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{background:#f7f9fd;font-size:12px;color:var(--muted);position:sticky;top:0;z-index:1}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr:hover{background:#fafcff}
+  td input{padding:5px 7px;font-size:13px;width:96px;text-align:right}
+  .mini{font-size:12px;color:var(--muted)}
+  .stat{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+  @media(max-width:640px){.stat{grid-template-columns:repeat(2,1fr)}}
+  .stat div{background:#f7f9fd;border:1px solid var(--line);border-radius:11px;padding:11px}
+  .stat b{display:block;font-size:19px;margin-top:3px}
+  details.set summary{cursor:pointer;font-weight:700;padding:4px 0}
+  .warnbox{background:#fff8e8;border:1px solid #f0dcae;color:#7a5a10;border-radius:10px;padding:10px 12px;font-size:13px}
+  .thumb-cell img{width:46px;height:46px;object-fit:cover;border-radius:7px;cursor:zoom-in}
+  dialog{border:none;border-radius:14px;padding:0;max-width:92vw;box-shadow:var(--shadow)}
+  dialog img{display:block;max-width:88vw;max-height:80vh}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid #cbd6ea;border-top-color:var(--brand);
+        border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="badge">시</div>
+      <div><h1>현장 시세조사</h1><p class="sub">사진 한 장이면 상품명·가격·코드까지 자동입력</p></div>
+    </div>
+    <div class="row">
+      <span id="saveState" class="mini">저장됨</span>
+      <button id="btnBackup">백업(JSON)</button>
+      <label class="row" style="margin:0"><button type="button" onclick="document.getElementById('restoreFile').click()">복원</button>
+        <input id="restoreFile" type="file" accept="application/json" class="hidden"></label>
+    </div>
+  </header>
+
+  <!-- ===== 1. 사진 자동입력 ===== -->
+  <section class="card">
+    <h2>📷 사진으로 자동입력</h2>
+
+    <div class="grid g2" style="margin-bottom:12px">
+      <div>
+        <label class="f">조사 매장</label>
+        <select id="storeSel"></select>
+      </div>
+      <div>
+        <label class="f">인식 엔진</label>
+        <div class="engine">
+          <button type="button" id="engAi" data-eng="ai">🤖 AI 정밀인식</button>
+          <button type="button" id="engOcr" data-eng="ocr">🆓 무료 OCR</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="aiSetup" class="grid g3" style="margin-bottom:12px">
+      <div style="grid-column:span 2">
+        <label class="f">Claude API 키 (sk-ant-…) · 이 브라우저에만 저장됩니다</label>
+        <input id="apiKey" type="password" placeholder="sk-ant-api03-...">
+      </div>
+      <div>
+        <label class="f">모델</label>
+        <select id="modelSel">
+          <option value="claude-opus-5">Claude Opus 5 (가장 정확)</option>
+          <option value="claude-sonnet-5">Claude Sonnet 5 (빠름·저렴)</option>
+          <option value="claude-haiku-4-5">Claude Haiku 4.5 (가장 저렴)</option>
+        </select>
+      </div>
+    </div>
+    <div id="ocrNote" class="warnbox hidden" style="margin-bottom:12px">
+      무료 OCR은 인터넷에서 한글 인식 데이터를 처음 한 번 내려받습니다(약 15MB). 흐릿하거나 기울어진 사진은 인식률이 떨어지니,
+      가격표가 화면을 꽉 채우도록 정면에서 찍어 주세요. 정확도가 중요하면 <b>AI 정밀인식</b>을 쓰세요.
+    </div>
+
+    <div id="drop" class="drop">
+      <div class="big">📸</div>
+      <div style="font-weight:700;margin-top:6px">사진을 여기에 끌어놓기</div>
+      <p>또는 아래 버튼 · 클립보드 붙여넣기(Ctrl+V)도 됩니다. 여러 장 한꺼번에 가능합니다.</p>
+      <div class="row" style="justify-content:center;margin-top:12px">
+        <button type="button" class="primary" id="btnCam">📷 사진 촬영</button>
+        <button type="button" id="btnPick">🖼 앨범 / 파일 선택</button>
+      </div>
+      <input id="camInput" type="file" accept="image/*" capture="environment" multiple class="hidden">
+      <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
+    </div>
+
+    <div id="progress" class="row hidden" style="margin-top:12px">
+      <span class="spin"></span><span id="progressText" class="mini"></span>
+    </div>
+    <div id="log" class="log hidden" style="margin-top:10px"></div>
+  </section>
+
+  <!-- ===== 2. 인식 결과 검토 ===== -->
+  <section class="card hidden" id="pendCard">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">🔍 인식 결과 확인 <span id="pendCount" class="pill mid">0건</span></h2>
+      <div class="row">
+        <button type="button" id="btnAddAll" class="primary">전부 표에 추가</button>
+        <button type="button" id="btnClearPend" class="danger">모두 버리기</button>
+      </div>
+    </div>
+    <p class="mini" style="margin:0 0 12px">잘못 읽은 칸만 고친 뒤 추가하세요. 빈 칸은 나중에 표에서도 고칠 수 있습니다.</p>
+    <div id="pendList" class="cardlist"></div>
+  </section>
+
+  <!-- ===== 3. 직접 입력 ===== -->
+  <section class="card">
+    <details>
+      <summary style="cursor:pointer;font-weight:700">✍️ 직접 입력 / 수정</summary>
+      <form id="form" style="margin-top:14px">
+        <input type="hidden" id="f_id">
+        <div class="grid g4">
+          <div style="grid-column:span 2"><label class="f">상품명 *</label><input id="f_name" required></div>
+          <div><label class="f">분류</label><select id="f_cat"></select></div>
+          <div><label class="f">매장</label><select id="f_store"></select></div>
+          <div><label class="f">매입가(도매처 판매가) *</label><input id="f_price" inputmode="numeric" required></div>
+          <div><label class="f">정가/온라인정찰가</label><input id="f_list" inputmode="numeric"></div>
+          <div><label class="f">박스입수</label><input id="f_box" placeholder="대박스 20개"></div>
+          <div><label class="f">창고 위치코드</label><input id="f_loc" placeholder="1F-31-05-1"></div>
+          <div><label class="f">상품코드</label><input id="f_code" inputmode="numeric"></div>
+          <div><label class="f">부가세</label><select id="f_vat"><option value="N">포함(표시가 그대로)</option><option value="Y">별도(+10%)</option></select></div>
+          <div><label class="f">포장수량(개)</label><input id="f_pack" inputmode="numeric" value="1"></div>
+          <div><label class="f">판매 묶음수량(개)</label><input id="f_bundle" inputmode="numeric" value="1"></div>
+          <div><label class="f">쿠팡 판매가(예정)</label><input id="f_sell" inputmode="numeric"></div>
+          <div><label class="f">온라인판매금지</label><select id="f_noon"><option value=""></option><option value="Y">Y</option></select></div>
+          <div style="grid-column:span 2"><label class="f">상품링크</label><input id="f_link" placeholder="https://"></div>
+          <div style="grid-column:span 2"><label class="f">비고</label><input id="f_memo"></div>
+        </div>
+        <div class="row" style="margin-top:13px">
+          <button class="primary" type="submit" id="f_submit">표에 추가</button>
+          <button type="button" id="f_reset">비우기</button>
+        </div>
+      </form>
+    </details>
+  </section>
+
+  <!-- ===== 4. 표 ===== -->
+  <section class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">📋 조사 목록</h2>
+      <div class="row">
+        <button type="button" id="btnCsvPrice">가격조사 CSV</button>
+        <button type="button" id="btnCsvMargin">마진계산 CSV</button>
+        <button type="button" id="btnClearAll" class="danger">전체 삭제</button>
+      </div>
+    </div>
+
+    <div class="stat" style="margin-bottom:12px">
+      <div><span class="mini">조사 품목</span><b id="sCount">0</b></div>
+      <div><span class="mini">평균 매입가</span><b id="sAvg">0원</b></div>
+      <div><span class="mini">최저가</span><b id="sMin">0원</b></div>
+      <div><span class="mini">최고가</span><b id="sMax">0원</b></div>
+    </div>
+
+    <div class="grid g4" style="margin-bottom:12px">
+      <div style="grid-column:span 2"><label class="f">검색(상품명·코드·비고)</label><input id="q" placeholder="검색어"></div>
+      <div><label class="f">매장 필터</label><select id="fStore"><option value="">전체</option></select></div>
+      <div><label class="f">분류 필터</label><select id="fCat"><option value="">전체</option></select></div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>No</th><th>사진</th><th>매장</th><th>상품명</th><th>분류</th>
+          <th class="num">매입가</th><th class="num">정가</th><th class="num">할인율</th>
+          <th>입수</th><th>위치</th><th>상품코드</th>
+          <th class="num">쿠팡판매가</th><th class="num">총원가</th><th class="num">건당마진</th>
+          <th class="num">마진율</th><th>판정</th><th class="num">손익분기가</th><th class="num">목표마진가</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="mini" style="margin:9px 0 0">쿠팡판매가는 표에서 바로 고칠 수 있습니다. 비워두면 손익분기가·목표마진가만 계산됩니다.</p>
+  </section>
+
+  <!-- ===== 5. 설정 ===== -->
+  <section class="card">
+    <details class="set">
+      <summary>⚙️ 판매비용 기준값 (엑셀 '수수료표'와 동일)</summary>
+      <div class="grid g4" style="margin-top:13px">
+        <div><label class="f">결제수수료율</label><input id="s_pay" inputmode="decimal"></div>
+        <div><label class="f">수수료 부가세율</label><input id="s_vatfee" inputmode="decimal"></div>
+        <div><label class="f">매입 부가세율</label><input id="s_vatbuy" inputmode="decimal"></div>
+        <div><label class="f">기본 택배비(원)</label><input id="s_ship" inputmode="numeric"></div>
+        <div><label class="f">포장 부자재비(원)</label><input id="s_pack" inputmode="numeric"></div>
+        <div><label class="f">목표 마진율</label><input id="s_target" inputmode="decimal"></div>
+        <div style="grid-column:span 2"><label class="f">기본 판매수수료율(분류 미매칭 시)</label><input id="s_fee" inputmode="decimal"></div>
+      </div>
+      <p class="mini" style="margin-top:10px">분류별 판매수수료율은 엑셀 수수료표 값이 내장되어 자동 적용됩니다(생활용품·주방 7.8% / 패션잡화 10.5% / 식품 10.6% 등).</p>
+    </details>
+  </section>
+
+  <dialog id="zoom"><img id="zoomImg" alt=""></dialog>
+</div>
+
+<script>
+/* =========================================================================
+   현장 시세조사 — 사진 자동입력
+   엑셀(시세조사5.xlsx)의 '가격조사' · '마진계산' · '수수료표' 시트 구조를 그대로 옮긴 단일 파일 앱.
+   ========================================================================= */
+
+/* ---------- 엑셀에서 가져온 기준 데이터 ---------- */
+const STORES = [
+  '도매콜 (곤지암 물류센터)','셀렉띵 (온라인)','강북종합물류 (망우동)','한알 ABM (용인 본점)',
+  '올랜즈 ((주)올랜즈)','티엠유아이 아울렛 (구리)','억대유통 (청주 남이면)','207FEET 물류아울렛 (파주)',
+  '쓰리백 (라이브커머스)','달달몰 (청주 물류센터)','도매까 아울렛 (김포 양촌)'
+];
+
+const CATS = ['★식품','★식품(과자)','★식품(라면)','★식품(장류)','★식품(정육)','★식품(통조림)','가전/여름','겨울/완구',
+  '겨울시즌','기타(미분류)','미용/남성','방향제/탈취제','뷰티','사무/책상정리','생활가전','생활용품','생활편의','선물/포장',
+  '세제/청소','세탁용품','소형가전','수납/정리','식기류','식품','완구/물놀이','욕실/주방','우산/우비','유아안전','유제품',
+  '음료','일회용품','자동차용품','장바구니','조리도구','주방/청소','주방소모품','주방소품','주방용품','청소용품',
+  '캠핑/레저','파티/이벤트','패션잡화','패션잡화/여름','팬시/잡화','휴지/물티슈'];
+
+// 쿠팡 카테고리별 판매수수료율(수수료표 시트)
+const FEE_TABLE = [
+  [/정육|신선|냉장|냉동|채소|과일/, 0.109],
+  [/식품|과자|라면|장류|통조림|음료|유제품|간식/, 0.106],
+  [/패션|가방|모자|의류|양말|잡화\/여름/, 0.105],
+  [/뷰티|미용|화장/, 0.096],
+  [/완구|물놀이|파티|이벤트|팬시/, 0.100],
+  [/자동차/, 0.100],
+  [/반려|애견|고양이/, 0.108],
+  [/가전|디지털/, 0.048],
+  [/사무|문구|책상/, 0.079],
+];
+const DEFAULTS = { pay:0.029, vatfee:0.1, vatbuy:0.1, ship:3000, pack:300, target:0.2, fee:0.078 };
+
+// 상품명 → 분류 자동 추정
+const CAT_RULES = [
+  [/라면|짜장|우동|국수/, '★식품(라면)'], [/과자|스낵|프링글스|칩|비스킷|쿠키|젤리|캔디|초콜/, '★식품(과자)'],
+  [/참치|통조림|햄|스팸/, '★식품(통조림)'], [/고추장|된장|간장|장류|소스/, '★식품(장류)'],
+  [/우유|요구르트|치즈|유제품/, '유제품'], [/음료|주스|커피|생수|탄산/, '음료'],
+  [/수세미|행주|고무장갑|위생장갑/, '주방소모품'], [/키친타월/, '휴지/물티슈'], [/타월|수건|걸레|극세사/, '주방/청소'], [/후라이팬|냄비|프라이팬|조리|주걱|국자|칼|도마/, '조리도구'],
+  [/그릇|접시|컵|머그|텀블러|식기/, '식기류'], [/락스|세제|세정|청소|살균|곰팡이/, '세제/청소'],
+  [/세탁|섬유유연|빨래/, '세탁용품'], [/휴지|물티슈|키친타월|화장지/, '휴지/물티슈'],
+  [/면도기|쉐이빙|면도날/, '미용/남성'],
+  [/일회용|종이컵|나무젓가락|빨대|위생봉투/, '일회용품'], [/방향제|탈취|디퓨저/, '방향제/탈취제'],
+  [/수납|정리함|리빙박스|선반|행거/, '수납/정리'], [/우산|양산|우비|레인/, '우산/우비'],
+  [/장바구니|에코백/, '장바구니'], [/선풍기|가습기|히터|드라이어|전기|충전/, '소형가전'],
+  [/모자|캡|썬캡|비치백|가방|슬리퍼|양말/, '패션잡화'],
+  [/마스크팩|화장품|립|스킨|로션/, '뷰티'], [/완구|장난감|물놀이|튜브/, '완구/물놀이'],
+  [/자동차|워셔액|차량/, '자동차용품'], [/욕실|샤워|변기|배수구/, '욕실/주방'],
+  [/분무기|압축|생활편의/, '생활편의'],
+];
+
+/* ---------- 저장소 ---------- */
+const LS_KEY = 'kokring_field_survey_v2';
+const LS_CFG = 'kokring_field_survey_cfg_v2';
+
+let state = { rows: [], store: STORES[0], engine: 'ai' };
+let cfg   = { ...DEFAULTS, apiKey:'', model:'claude-opus-5' };
+let pending = [];
+let editingId = null;
+
+function loadAll(){
+  try{ const s = JSON.parse(localStorage.getItem(LS_KEY)||'null'); if(s) state = {...state, ...s}; }catch(e){}
+  try{ const c = JSON.parse(localStorage.getItem(LS_CFG)||'null'); if(c) cfg = {...cfg, ...c}; }catch(e){}
+}
+let saveTimer=null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 250);
+}
+// 폰에서 앱을 내리거나 탭을 닫아도 마지막 편집이 남도록 즉시 기록
+function saveNow(){ clearTimeout(saveTimer); flushSave(); }
+function flushSave(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    localStorage.setItem(LS_CFG, JSON.stringify(cfg));
+    setSaveState('저장됨');
+  }catch(err){
+    // 사진 때문에 용량이 넘치면 사진만 버리고 데이터는 지킨다
+    const stripped = {...state, rows: state.rows.map(r=>({...r, photo:''}))};
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify(stripped));
+      state.rows.forEach(r=>r.photo='');
+      setSaveState('저장 공간이 부족해 사진 미리보기는 지웠습니다');
+      render();
+    }catch(e2){ setSaveState('저장 실패 — 백업(JSON)을 받아 두세요'); }
+  }
+}
+function setSaveState(t){ $('#saveState').textContent = t; }
+
+/* ---------- 유틸 ---------- */
+const $  = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+const uid = ()=> Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const num = v => { const n = parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isFinite(n)?n:0; };
+const intOf = v => Math.round(num(v));
+const won = n => (Math.round(n)||0).toLocaleString('ko-KR')+'원';
+const pct = n => (n*100).toFixed(1)+'%';
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function guessCat(name){
+  const n = String(name||'');
+  for(const [re,c] of CAT_RULES) if(re.test(n)) return c;
+  return '기타(미분류)';
+}
+function feeRate(cat){
+  const c = String(cat||'');
+  for(const [re,r] of FEE_TABLE) if(re.test(c)) return r;
+  return num(cfg.fee) || DEFAULTS.fee;
+}
+
+/* ---------- 마진 계산 (엑셀 '마진계산' 시트와 동일한 식) ---------- */
+function calc(row){
+  const buy   = num(row.price);
+  const packQ = Math.max(1, num(row.packQty)||1);
+  const bundle= Math.max(1, num(row.bundleQty)||1);
+  const vat   = row.vat === 'Y' ? (1 + num(cfg.vatbuy)) : 1;
+
+  const unit  = buy * vat / packQ;         // 실매입 단가
+  const cost  = unit * bundle;             // 건당 매입원가
+  const logi  = num(cfg.ship) + num(cfg.pack);
+  const rate  = feeRate(row.cat);
+  const kRate = (rate + num(cfg.pay)) * (1 + num(cfg.vatfee)); // 판매가에 비례하는 수수료 총합 비율
+
+  const sell  = num(row.sell);
+  const sellFee = sell * rate;
+  const payFee  = sell * num(cfg.pay);
+  const feeVat  = (sellFee + payFee) * num(cfg.vatfee);
+  const total   = cost + sellFee + payFee + feeVat + logi;
+  const margin  = sell - total;
+  const mRate   = sell > 0 ? margin / sell : 0;
+
+  const denomBE = 1 - kRate;
+  const target  = num(cfg.target);
+  const denomTG = 1 - target - kRate;
+
+  return {
+    unit, cost, rate, logi,
+    total: sell>0 ? total : 0,
+    margin: sell>0 ? margin : 0,
+    mRate: sell>0 ? mRate : 0,
+    // 목표마진 판매가는 원 단위로 반올림되므로, 판정은 0.01%p 오차를 허용한다
+    verdict: sell>0 ? (mRate >= target - 0.0001 ? '양호' : (mRate > 0 ? '주의' : '손실')) : '',
+    breakEven: denomBE > 0 ? (cost + logi) / denomBE : 0,
+    targetPrice: denomTG > 0 ? (cost + logi) / denomTG : 0,
+  };
+}
+
+/* =========================================================================
+   이미지 처리
+   ========================================================================= */
+function readFile(file){
+  return new Promise((res, rej)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>res(fr.result);
+    fr.onerror = ()=>rej(new Error('파일을 읽지 못했습니다'));
+    fr.readAsDataURL(file);
+  });
+}
+function loadImage(src){
+  return new Promise((res, rej)=>{
+    const img = new Image();
+    img.onload = ()=>res(img);
+    img.onerror = ()=>rej(new Error('이미지를 열지 못했습니다'));
+    img.src = src;
+  });
+}
+// AI 전송용: 긴 변 1600px, JPEG
+async function toSendable(dataUrl){
+  const img = await loadImage(dataUrl);
+  const max = 1600, s = Math.min(1, max/Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+// 표 미리보기용 썸네일
+async function toThumb(dataUrl){
+  const img = await loadImage(dataUrl);
+  const max = 260, s = Math.min(1, max/Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.6);
+}
+// OCR 전처리: 확대 + 흑백 + 대비 강화 (한글 가격표 인식률이 크게 올라감)
+async function toOcrImage(dataUrl){
+  const img = await loadImage(dataUrl);
+  const want = 1800;
+  const s = Math.max(1, Math.min(2.5, want/Math.max(img.width, img.height)));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const d = ctx.getImageData(0, 0, c.width, c.height), p = d.data;
+  let sum = 0;
+  for(let i=0;i<p.length;i+=4){
+    const g = 0.299*p[i] + 0.587*p[i+1] + 0.114*p[i+2];
+    p[i]=p[i+1]=p[i+2]=g; sum += g;
+  }
+  const mean = sum / (p.length/4);
+  const k = 1.7;
+  for(let i=0;i<p.length;i+=4){
+    const v = Math.max(0, Math.min(255, (p[i]-mean)*k + 160));
+    p[i]=p[i+1]=p[i+2]=v;
+  }
+  ctx.putImageData(d, 0, 0);
+  return c.toDataURL('image/png');
+}
+
+/* =========================================================================
+   엔진 A — AI 정밀인식 (Claude Messages API, 구조화 출력)
+   ========================================================================= */
+const EXTRACT_SCHEMA = {
+  type: 'object',
+  properties: {
+    store: { type:'string', description:'사진에 매장/업체 이름이 보이면 적고 없으면 빈 문자열' },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name:     { type:'string', description:'상품명(전체). 없으면 빈 문자열' },
+          price:    { type:'string', description:'실제 판매가. 숫자만, 쉼표와 원 제거' },
+          listPrice:{ type:'string', description:'정가/취소선 가격. 숫자만' },
+          code:     { type:'string', description:'상품코드·상품번호·바코드 숫자' },
+          loc:      { type:'string', description:'1F-31-05-1 같은 창고 위치코드' },
+          box:      { type:'string', description:'대박스 20개 처럼 보이는 박스입수 표기' },
+          vat:      { type:'string', description:'부가세 별도 표기가 있으면 Y, 아니면 빈 문자열' },
+          cat:      { type:'string', description:'분류' },
+          memo:     { type:'string', description:'특이사항. 없으면 빈 문자열' }
+        },
+        required: ['name','price','listPrice','code','loc','box','vat','cat','memo'],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ['store','items'],
+  additionalProperties: false
+};
+
+function aiPrompt(){
+  return [
+    '한국 도매매장의 가격표·상품라벨·진열대 사진입니다. 보이는 상품 정보를 빠짐없이 읽어 주세요.',
+    '',
+    '규칙:',
+    '- 사진에 가격표가 여러 개면 상품마다 items 항목을 따로 만드세요.',
+    '- 모든 값은 문자열입니다. 사진에서 확인할 수 없으면 반드시 빈 문자열 ""을 쓰고 추측하지 마세요.',
+    '- price/listPrice/code 는 숫자만 남깁니다(쉼표·"원"·"₩" 제거).',
+    '- 가격이 두 개 보이면 크게 강조된 실제 판매가를 price 에, 취소선·정가·정상가 표기를 listPrice 에 넣습니다.',
+    '- code 는 라벨의 상품코드/상품번호/바코드 아래 숫자입니다(보통 8~13자리).',
+    '- loc 은 "1F-31-05-1" 처럼 층-열-단 형태의 창고 위치코드입니다.',
+    '- box 는 "대박스 20개", "1BOX 24입" 같은 입수 표기를 그대로 적습니다.',
+    '- vat 은 "부가세 별도", "VAT 별도" 표기가 보일 때만 "Y" 입니다.',
+    '- cat 은 상품명을 보고 다음 목록에서 가장 가까운 하나를 고릅니다. 애매하면 "기타(미분류)".',
+    '  ' + CATS.join(', ')
+  ].join('\n');
+}
+
+async function runAI(dataUrl){
+  const key = (cfg.apiKey||'').trim();
+  if(!key) throw new Error('AI 정밀인식을 쓰려면 Claude API 키를 입력하세요. (키가 없으면 "무료 OCR"로 바꿔서 쓸 수 있습니다)');
+
+  const jpeg = await toSendable(dataUrl);
+  const b64 = jpeg.split(',')[1];
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key': key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({
+      model: cfg.model || 'claude-opus-5',
+      max_tokens: 8000,
+      output_config: { effort:'low', format:{ type:'json_schema', schema: EXTRACT_SCHEMA } },
+      messages: [{
+        role:'user',
+        content:[
+          { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:b64 } },
+          { type:'text', text: aiPrompt() }
+        ]
+      }]
+    })
+  });
+
+  if(!res.ok){
+    let detail = '';
+    try{ const j = await res.json(); detail = j?.error?.message || ''; }catch(e){}
+    if(res.status === 401) throw new Error('API 키가 올바르지 않습니다. (401)');
+    if(res.status === 429) throw new Error('요청이 잠시 많습니다. 30초 뒤 다시 시도하세요. (429)');
+    throw new Error('AI 인식 실패 ('+res.status+') ' + detail);
+  }
+
+  const data = await res.json();
+  if(data.stop_reason === 'refusal') throw new Error('AI가 이 이미지의 처리를 거절했습니다.');
+  const textBlock = (data.content||[]).find(b=>b.type==='text');
+  if(!textBlock) throw new Error('AI 응답이 비어 있습니다.');
+
+  let parsed;
+  try{ parsed = JSON.parse(textBlock.text); }
+  catch(e){ throw new Error('AI 응답을 해석하지 못했습니다.'); }
+
+  return (parsed.items||[]).map(it=>({
+    name: (it.name||'').trim(),
+    price: intOf(it.price),
+    listPrice: intOf(it.listPrice),
+    code: (it.code||'').replace(/\D/g,''),
+    loc: (it.loc||'').trim(),
+    box: (it.box||'').trim(),
+    vat: /^y$/i.test(it.vat||'') ? 'Y' : 'N',
+    cat: CATS.includes((it.cat||'').trim()) ? it.cat.trim() : guessCat(it.name),
+    memo: (it.memo||'').trim(),
+    store: (parsed.store||'').trim()
+  })).filter(r => r.name || r.price);
+}
+
+/* =========================================================================
+   엔진 B — 무료 OCR (Tesseract.js) + 한국 가격표 전용 파서
+   ========================================================================= */
+let tessWorker = null;
+function loadScript(src){
+  return new Promise((res, rej)=>{
+    const s = document.createElement('script');
+    s.src = src; s.onload = res;
+    s.onerror = ()=>rej(new Error('OCR 라이브러리를 내려받지 못했습니다. 인터넷 연결을 확인하세요.'));
+    document.head.appendChild(s);
+  });
+}
+async function getWorker(onLog){
+  if(tessWorker) return tessWorker;
+  if(!window.Tesseract){
+    onLog('OCR 라이브러리 내려받는 중…');
+    await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js');
+  }
+  onLog('한글 인식 데이터 준비 중… (처음 한 번만, 조금 걸립니다)');
+  tessWorker = await window.Tesseract.createWorker(['kor','eng'], 1, {
+    logger: m => { if(m.status === 'recognizing text') onLog('글자 읽는 중 ' + Math.round((m.progress||0)*100) + '%'); }
+  });
+  return tessWorker;
+}
+
+// OCR 원문 → 필드 추출
+function parseOcr(text){
+  const raw = String(text||'').replace(/ /g,' ');
+  const lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+
+  const out = { name:'', price:0, listPrice:0, code:'', loc:'', box:'', vat:'N', cat:'', memo:'' };
+
+  // 창고 위치코드: 1F-31-05-1 / 2F 04 33 2
+  const mLoc = raw.match(/\b(\d\s?[FfBb])\s?[-–—\s]\s?(\d{1,2})\s?[-–—\s]\s?(\d{1,2})\s?[-–—\s]\s?(\d{1,2})\b/);
+  if(mLoc) out.loc = (mLoc[1]+'-'+mLoc[2]+'-'+mLoc[3]+'-'+mLoc[4]).toUpperCase().replace(/\s/g,'');
+
+  // 박스입수
+  const mBox = raw.match(/(대박스|소박스|박스|BOX|박스당)\s*([0-9]{1,4})\s*(개|입|EA|ea)?/);
+  if(mBox) out.box = (mBox[1]+' '+mBox[2]+(mBox[3]||'개')).replace(/\s+/g,' ');
+
+  // 부가세 별도
+  if(/부가\s*세?\s*별도|VAT\s*별도|\+VAT/i.test(raw)) out.vat = 'Y';
+
+  // 가격 후보: '원' 이 붙었거나 3자리 콤마가 있는 숫자
+  const priceCands = [];
+  const reWon = /([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})\s*(원|₩)/g;
+  let m;
+  while((m = reWon.exec(raw))){ const v = intOf(m[1]); if(v>=50 && v<=9999999) priceCands.push(v); }
+  if(!priceCands.length){
+    const reComma = /\b([0-9]{1,3}(?:,[0-9]{3})+)\b/g;
+    while((m = reComma.exec(raw))){ const v = intOf(m[1]); if(v>=50 && v<=9999999) priceCands.push(v); }
+  }
+  if(priceCands.length === 1){
+    out.price = priceCands[0];
+  }else if(priceCands.length > 1){
+    // 판매가 = 보통 가장 작은 값(할인가), 정가 = 가장 큰 값
+    const sorted = [...priceCands].sort((a,b)=>a-b);
+    out.price = sorted[0];
+    if(sorted[sorted.length-1] > sorted[0]) out.listPrice = sorted[sorted.length-1];
+  }
+
+  // 상품코드: 8~13자리 연속 숫자 (가격으로 뽑힌 값 제외)
+  const codes = (raw.match(/\b\d{8,13}\b/g)||[]).filter(c=>intOf(c)!==out.price && intOf(c)!==out.listPrice);
+  if(codes.length) out.code = codes[0];
+
+  // 상품명 고르기: 한글이 많을수록 가점, 가격·코드·안내문구가 섞인 줄은 감점.
+  // (단순히 '가장 긴 줄'로 고르면 "1,850원 (부가세 별도)" 같은 줄이 상품명으로 잡힌다)
+  const junk = /^(판매가|정가|가격|소비자가|할인|부가세|바코드|상품코드|위치|원산지|제조|유통|용량|수량|합계|총액|영수증|카드|현금)/;
+  const hasPrice = /(^|[\s(\[])[0-9][0-9,.]*\s*(원|₩)/;
+  let best = '', bestScore = -Infinity;
+  for(const l of lines){
+    const t = l.replace(/[|_■□●○▶*]/g,' ').replace(/\s+/g,' ').trim();
+    if(t.length < 3) continue;
+    if(junk.test(t)) continue;
+    const ko = (t.match(/[가-힣]/g)||[]).length;
+    if(ko < 2) continue;
+    if((t.match(/\d/g)||[]).length / t.length > 0.5) continue;
+    let score = ko + Math.min(t.length, 40) * 0.3;
+    if(hasPrice.test(t)) score -= 30;              // 가격이 적힌 줄
+    if(/\b\d{8,13}\b/.test(t)) score -= 20;       // 상품코드가 적힌 줄
+    if(/부가세|별도|VAT/i.test(t)) score -= 15;     // 안내 문구
+    if(score > bestScore){ bestScore = score; best = t; }
+  }
+  // 상품명 뒤에 가격이 붙어 있으면 떼어낸다
+  out.name = best.replace(/\s*[0-9][0-9,.]*\s*(원|₩).*$/, '').trim() || best;
+  out.cat = guessCat(out.name);
+  return out;
+}
+
+async function runOCR(dataUrl, onLog){
+  const worker = await getWorker(onLog);
+  const img = await toOcrImage(dataUrl);
+  const { data } = await worker.recognize(img);
+  const parsed = parseOcr(data.text || '');
+  if(!parsed.name && !parsed.price) throw new Error('사진에서 글자를 찾지 못했습니다. 더 가까이·밝게 다시 찍어 주세요.');
+  parsed.memo = parsed.memo || '';
+  return [parsed];
+}
+
+/* =========================================================================
+   사진 → 인식 → 검토 카드
+   ========================================================================= */
+async function handleFiles(files){
+  const imgs = [...files].filter(f => f && f.type && f.type.startsWith('image/'));
+  if(!imgs.length){ return; }
+
+  $('#progress').classList.remove('hidden');
+  $('#log').classList.remove('hidden');
+  logClear();
+
+  let ok = 0, fail = 0;
+  for(let i=0;i<imgs.length;i++){
+    setProgress(`${imgs.length}장 중 ${i+1}장째 인식 중…`);
+    const f = imgs[i];
+    try{
+      const dataUrl = await readFile(f);
+      const thumb = await toThumb(dataUrl);
+      const results = state.engine === 'ai'
+        ? await runAI(dataUrl)
+        : await runOCR(dataUrl, t=>{ setProgress(`${imgs.length}장 중 ${i+1}장째 · ${t}`); });
+
+      if(!results.length){ log(`⚠ ${f.name}: 읽어낼 정보가 없습니다.`); fail++; continue; }
+      results.forEach(r=>{
+        pending.push({
+          pid: uid(), photo: thumb,
+          store: (r.store && STORES.includes(r.store)) ? r.store : state.store,
+          name: r.name||'', cat: r.cat || guessCat(r.name), price: r.price||0,
+          listPrice: r.listPrice||0, box: r.box||'', loc: r.loc||'',
+          code: r.code||'', vat: r.vat||'N', memo: r.memo||'',
+          packQty:1, bundleQty:1, sell:0, link:'', noOnline:''
+        });
+      });
+      log(`✔ ${f.name}: ${results.length}건 인식 — ${results.map(r=>r.name||'(이름없음)').join(', ')}`);
+      ok++;
+    }catch(err){
+      log(`✖ ${f.name}: ${err.message}`);
+      fail++;
+    }
+  }
+
+  $('#progress').classList.add('hidden');
+  setProgress('');
+  log(`— 완료: 성공 ${ok}장 / 실패 ${fail}장 —`);
+  renderPending();
+  if(pending.length) $('#pendCard').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function setProgress(t){ $('#progressText').textContent = t; }
+function log(t){ const el = $('#log'); el.textContent += (el.textContent?'\n':'') + t; el.scrollTop = el.scrollHeight; }
+function logClear(){ $('#log').textContent = ''; }
+
+function renderPending(){
+  const card = $('#pendCard');
+  if(!pending.length){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  $('#pendCount').textContent = pending.length + '건';
+
+  $('#pendList').innerHTML = pending.map(p=>`
+    <div class="pend" data-pid="${p.pid}">
+      ${p.photo ? `<img class="thumb" src="${p.photo}" alt="">` : ''}
+      <div class="grid g2">
+        <div style="grid-column:span 2"><label class="f">상품명</label><input data-k="name" value="${esc(p.name)}"></div>
+        <div><label class="f">매입가</label><input data-k="price" inputmode="numeric" value="${p.price||''}"></div>
+        <div><label class="f">정가</label><input data-k="listPrice" inputmode="numeric" value="${p.listPrice||''}"></div>
+        <div style="grid-column:span 2"><label class="f">분류</label>
+          <select data-k="cat">${CATS.map(c=>`<option ${c===p.cat?'selected':''}>${c}</option>`).join('')}</select></div>
+        <div><label class="f">상품코드</label><input data-k="code" value="${esc(p.code)}"></div>
+        <div><label class="f">위치코드</label><input data-k="loc" value="${esc(p.loc)}"></div>
+        <div><label class="f">박스입수</label><input data-k="box" value="${esc(p.box)}"></div>
+        <div><label class="f">부가세</label>
+          <select data-k="vat"><option value="N" ${p.vat!=='Y'?'selected':''}>포함</option><option value="Y" ${p.vat==='Y'?'selected':''}>별도</option></select></div>
+        <div style="grid-column:span 2"><label class="f">매장</label>
+          <select data-k="store">${STORES.map(s=>`<option ${s===p.store?'selected':''}>${esc(s)}</option>`).join('')}</select></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button type="button" class="primary" data-act="add">표에 추가</button>
+        <button type="button" class="danger" data-act="drop">버리기</button>
+      </div>
+    </div>`).join('');
+}
+
+$('#pendList').addEventListener('input', e=>{
+  const box = e.target.closest('.pend'); if(!box) return;
+  const p = pending.find(x=>x.pid===box.dataset.pid); if(!p) return;
+  const k = e.target.dataset.k; if(!k) return;
+  p[k] = (k==='price'||k==='listPrice') ? intOf(e.target.value) : e.target.value;
+});
+$('#pendList').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  const box = e.target.closest('.pend'); const pid = box.dataset.pid;
+  const idx = pending.findIndex(x=>x.pid===pid); if(idx<0) return;
+  if(btn.dataset.act === 'add'){ commitPending(pending[idx]); pending.splice(idx,1); }
+  else pending.splice(idx,1);
+  renderPending(); render(); save();
+});
+$('#btnAddAll').addEventListener('click', ()=>{
+  pending.forEach(commitPending); pending = [];
+  renderPending(); render(); save();
+});
+$('#btnClearPend').addEventListener('click', ()=>{ pending = []; renderPending(); });
+
+function commitPending(p){
+  if(!p.name && !p.price) return;
+  state.rows.push({
+    id: uid(), store: p.store, name: p.name, cat: p.cat, price: intOf(p.price),
+    listPrice: intOf(p.listPrice), box: p.box, loc: p.loc, code: p.code,
+    vat: p.vat, packQty: 1, bundleQty: 1, sell: 0, link: '', noOnline: '',
+    memo: p.memo, photo: p.photo, date: new Date().toISOString().slice(0,10)
+  });
+}
+
+/* =========================================================================
+   표 렌더링
+   ========================================================================= */
+function visibleRows(){
+  const q = $('#q').value.trim().toLowerCase();
+  const fs = $('#fStore').value, fc = $('#fCat').value;
+  return state.rows.filter(r=>{
+    if(fs && r.store !== fs) return false;
+    if(fc && r.cat !== fc) return false;
+    if(q){
+      const hay = [r.name, r.code, r.memo, r.loc].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function render(){
+  const rows = visibleRows();
+
+  $('#tbody').innerHTML = rows.map((r,i)=>{
+    const c = calc(r);
+    const disc = (r.listPrice>0 && r.price>0) ? (1 - r.price/r.listPrice) : null;
+    const vp = c.verdict === '양호' ? 'ok' : c.verdict === '주의' ? 'mid' : c.verdict === '손실' ? 'no' : '';
+    return `<tr data-id="${r.id}">
+      <td>${i+1}</td>
+      <td class="thumb-cell">${r.photo?`<img src="${r.photo}" alt="">`:''}</td>
+      <td>${esc(r.store)}</td>
+      <td title="${esc(r.name)}">${esc(r.name)}</td>
+      <td>${esc(r.cat)}</td>
+      <td class="num">${r.price?won(r.price):''}${r.vat==='Y'?' <span class="mini">+VAT</span>':''}</td>
+      <td class="num">${r.listPrice?won(r.listPrice):''}</td>
+      <td class="num">${disc!==null?pct(disc):''}</td>
+      <td>${esc(r.box)}</td>
+      <td>${esc(r.loc)}</td>
+      <td>${esc(r.code)}</td>
+      <td class="num"><input data-k="sell" inputmode="numeric" value="${r.sell||''}" placeholder="입력"></td>
+      <td class="num">${c.total?won(c.total):''}</td>
+      <td class="num" style="color:${c.margin<0?'var(--bad)':'inherit'}">${r.sell?won(c.margin):''}</td>
+      <td class="num">${r.sell?pct(c.mRate):''}</td>
+      <td>${c.verdict?`<span class="pill ${vp}">${c.verdict}</span>`:''}</td>
+      <td class="num">${c.breakEven?won(c.breakEven):''}</td>
+      <td class="num">${c.targetPrice?won(c.targetPrice):''}</td>
+      <td><button type="button" data-act="edit">수정</button> <button type="button" class="danger" data-act="del">삭제</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="19" style="text-align:center;color:var(--muted);padding:26px">
+      아직 조사한 상품이 없습니다. 위에서 가격표 사진을 올려 보세요.</td></tr>`;
+
+  const prices = rows.map(r=>num(r.price)).filter(v=>v>0);
+  $('#sCount').textContent = rows.length;
+  $('#sAvg').textContent = prices.length ? won(prices.reduce((a,b)=>a+b,0)/prices.length) : '0원';
+  $('#sMin').textContent = prices.length ? won(Math.min(...prices)) : '0원';
+  $('#sMax').textContent = prices.length ? won(Math.max(...prices)) : '0원';
+
+  syncFilterOptions();
+}
+
+function syncFilterOptions(){
+  const keep = (sel, values)=>{
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">전체</option>' + values.map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('');
+  };
+  keep($('#fStore'), [...new Set(state.rows.map(r=>r.store).filter(Boolean))]);
+  keep($('#fCat'),   [...new Set(state.rows.map(r=>r.cat).filter(Boolean))]);
+}
+
+$('#tbody').addEventListener('input', e=>{
+  const tr = e.target.closest('tr'); if(!tr) return;
+  const r = state.rows.find(x=>x.id===tr.dataset.id); if(!r) return;
+  if(e.target.dataset.k === 'sell'){ r.sell = intOf(e.target.value); render(); save();
+    const again = $(`tr[data-id="${r.id}"] input[data-k="sell"]`); if(again){ again.focus(); again.setSelectionRange(again.value.length, again.value.length); } }
+});
+$('#tbody').addEventListener('click', e=>{
+  const btn = e.target.closest('button');
+  if(btn){
+    const tr = e.target.closest('tr'); const id = tr.dataset.id;
+    if(btn.dataset.act === 'del'){
+      if(confirm('이 항목을 삭제할까요?')){ state.rows = state.rows.filter(r=>r.id!==id); render(); save(); }
+    }else if(btn.dataset.act === 'edit'){ fillForm(state.rows.find(r=>r.id===id)); }
+    return;
+  }
+  const img = e.target.closest('.thumb-cell img');
+  if(img){ $('#zoomImg').src = img.src; $('#zoom').showModal(); }
+});
+$('#zoom').addEventListener('click', ()=>$('#zoom').close());
+
+/* =========================================================================
+   직접 입력 폼
+   ========================================================================= */
+function fillForm(r){
+  if(!r) return;
+  editingId = r.id;
+  $('#f_id').value = r.id;
+  $('#f_name').value = r.name; $('#f_cat').value = r.cat || '기타(미분류)';
+  $('#f_store').value = r.store; $('#f_price').value = r.price || '';
+  $('#f_list').value = r.listPrice || ''; $('#f_box').value = r.box || '';
+  $('#f_loc').value = r.loc || ''; $('#f_code').value = r.code || '';
+  $('#f_vat').value = r.vat || 'N'; $('#f_pack').value = r.packQty || 1;
+  $('#f_bundle').value = r.bundleQty || 1; $('#f_sell').value = r.sell || '';
+  $('#f_noon').value = r.noOnline || ''; $('#f_link').value = r.link || '';
+  $('#f_memo').value = r.memo || '';
+  $('#f_submit').textContent = '수정 저장';
+  $('#form').closest('details').open = true;
+  $('#form').scrollIntoView({behavior:'smooth', block:'center'});
+}
+function resetForm(){
+  editingId = null;
+  $('#form').reset();
+  $('#f_pack').value = 1; $('#f_bundle').value = 1;
+  $('#f_store').value = state.store;
+  $('#f_submit').textContent = '표에 추가';
+}
+$('#f_reset').addEventListener('click', resetForm);
+$('#f_name').addEventListener('blur', ()=>{
+  if(!editingId && $('#f_name').value && $('#f_cat').value === '기타(미분류)')
+    $('#f_cat').value = guessCat($('#f_name').value);
+});
+$('#form').addEventListener('submit', e=>{
+  e.preventDefault();
+  const data = {
+    store: $('#f_store').value, name: $('#f_name').value.trim(), cat: $('#f_cat').value,
+    price: intOf($('#f_price').value), listPrice: intOf($('#f_list').value),
+    box: $('#f_box').value.trim(), loc: $('#f_loc').value.trim(), code: $('#f_code').value.trim(),
+    vat: $('#f_vat').value, packQty: Math.max(1,intOf($('#f_pack').value)||1),
+    bundleQty: Math.max(1,intOf($('#f_bundle').value)||1), sell: intOf($('#f_sell').value),
+    noOnline: $('#f_noon').value, link: $('#f_link').value.trim(), memo: $('#f_memo').value.trim()
+  };
+  if(editingId){
+    const r = state.rows.find(x=>x.id===editingId);
+    if(r) Object.assign(r, data);
+  }else{
+    state.rows.push({ id: uid(), photo:'', date:new Date().toISOString().slice(0,10), ...data });
+  }
+  resetForm(); render(); save();
+});
+
+/* =========================================================================
+   내보내기 / 백업
+   ========================================================================= */
+function download(filename, text, mime='text/csv;charset=utf-8'){
+  const blob = new Blob(['﻿', text], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+const csvCell = v => { const s = String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+const toCsv = rows => rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
+
+$('#btnCsvPrice').addEventListener('click', ()=>{
+  const head = ['No','매장명','상품명','분류(추정)','판매가(원)','정가/온라인정찰가(원)','정가 대비 할인율',
+                '박스입수','창고 위치코드','온라인판매금지','상품코드','상품링크','비고','요약포함','검색키','조사일'];
+  const body = visibleRows().map((r,i)=>[
+    i+1, r.store, r.name, r.cat, r.price||'', r.listPrice||'',
+    (r.listPrice>0 && r.price>0) ? (1 - r.price/r.listPrice).toFixed(4) : '',
+    r.box, r.loc, r.noOnline, r.code, r.link, r.memo, 'Y', `${r.store}|${r.price||''}`, r.date||''
+  ]);
+  download('가격조사.csv', toCsv([head, ...body]));
+});
+
+$('#btnCsvMargin').addEventListener('click', ()=>{
+  const head = ['No','매장명','상품명','카테고리','매입가(원)','포장수량(개)','부가세 별도?','판매 묶음수량(개)',
+                '쿠팡 판매가(원)','실매입 단가(원)','건당 매입원가(원)','판매수수료율','판매수수료(원)','결제수수료(원)',
+                '수수료 부가세(원)','물류비(원)','총원가(원)','건당 마진(원)','마진율','판정','손익분기 판매가(원)','목표마진 판매가(원)'];
+  const body = visibleRows().map((r,i)=>{
+    const c = calc(r);
+    const sellFee = num(r.sell)*c.rate, payFee = num(r.sell)*num(cfg.pay);
+    return [i+1, r.store, r.name, r.cat, r.price||'', r.packQty||1, r.vat, r.bundleQty||1, r.sell||'',
+      Math.round(c.unit), Math.round(c.cost), c.rate,
+      r.sell?Math.round(sellFee):'', r.sell?Math.round(payFee):'',
+      r.sell?Math.round((sellFee+payFee)*num(cfg.vatfee)):'', Math.round(c.logi),
+      r.sell?Math.round(c.total):'', r.sell?Math.round(c.margin):'', r.sell?c.mRate.toFixed(4):'',
+      c.verdict, Math.round(c.breakEven), Math.round(c.targetPrice)];
+  });
+  download('마진계산.csv', toCsv([head, ...body]));
+});
+
+$('#btnBackup').addEventListener('click', ()=>{
+  const payload = { version:2, savedAt:new Date().toISOString(), state, cfg:{...cfg, apiKey:''} };
+  download('시세조사_백업_'+new Date().toISOString().slice(0,10)+'.json',
+           JSON.stringify(payload, null, 2), 'application/json');
+});
+$('#restoreFile').addEventListener('change', async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    if(!data.state || !Array.isArray(data.state.rows)) throw new Error('형식이 맞지 않습니다');
+    if(!confirm(`현재 목록(${state.rows.length}건)을 백업(${data.state.rows.length}건)으로 바꿀까요?`)) return;
+    const key = cfg.apiKey;
+    state = {...state, ...data.state};
+    if(data.cfg) cfg = {...cfg, ...data.cfg, apiKey:key};
+    applyCfgToInputs(); render(); save();
+    alert('복원했습니다.');
+  }catch(err){ alert('복원 실패: '+err.message); }
+  finally{ e.target.value=''; }
+});
+$('#btnClearAll').addEventListener('click', ()=>{
+  if(!state.rows.length) return;
+  if(confirm(`조사 목록 ${state.rows.length}건을 모두 삭제할까요? (되돌릴 수 없습니다)`)){
+    state.rows = []; render(); save();
+  }
+});
+
+/* =========================================================================
+   입력 소스 연결 (촬영 / 파일 / 드래그 / 붙여넣기)
+   ========================================================================= */
+$('#btnCam').addEventListener('click', ()=>$('#camInput').click());
+$('#btnPick').addEventListener('click', ()=>$('#fileInput').click());
+$('#camInput').addEventListener('change', e=>{ handleFiles(e.target.files); e.target.value=''; });
+$('#fileInput').addEventListener('change', e=>{ handleFiles(e.target.files); e.target.value=''; });
+
+const drop = $('#drop');
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.add('hot'); }));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.remove('hot'); }));
+drop.addEventListener('drop', e=>{ if(e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files); });
+window.addEventListener('pagehide', saveNow);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') saveNow(); });
+
+document.addEventListener('paste', e=>{
+  const files = [...(e.clipboardData?.files||[])];
+  if(files.length) handleFiles(files);
+});
+
+/* =========================================================================
+   설정 · 초기화
+   ========================================================================= */
+function setEngine(eng){
+  state.engine = eng;
+  $('#engAi').classList.toggle('on', eng==='ai');
+  $('#engOcr').classList.toggle('on', eng==='ocr');
+  $('#aiSetup').classList.toggle('hidden', eng!=='ai');
+  $('#ocrNote').classList.toggle('hidden', eng!=='ocr');
+  save();
+}
+$('#engAi').addEventListener('click', ()=>setEngine('ai'));
+$('#engOcr').addEventListener('click', ()=>setEngine('ocr'));
+
+function applyCfgToInputs(){
+  $('#apiKey').value = cfg.apiKey || '';
+  $('#modelSel').value = cfg.model || 'claude-opus-5';
+  $('#s_pay').value = cfg.pay; $('#s_vatfee').value = cfg.vatfee; $('#s_vatbuy').value = cfg.vatbuy;
+  $('#s_ship').value = cfg.ship; $('#s_pack').value = cfg.pack; $('#s_target').value = cfg.target;
+  $('#s_fee').value = cfg.fee;
+}
+$('#apiKey').addEventListener('input', e=>{ cfg.apiKey = e.target.value.trim(); save(); });
+$('#modelSel').addEventListener('change', e=>{ cfg.model = e.target.value; save(); });
+[['#s_pay','pay'],['#s_vatfee','vatfee'],['#s_vatbuy','vatbuy'],['#s_ship','ship'],
+ ['#s_pack','pack'],['#s_target','target'],['#s_fee','fee']].forEach(([sel,key])=>{
+  $(sel).addEventListener('input', e=>{ cfg[key] = num(e.target.value); render(); save(); });
+});
+
+$('#storeSel').addEventListener('change', e=>{ state.store = e.target.value; $('#f_store').value = e.target.value; save(); });
+['#q','#fStore','#fCat'].forEach(s=>$(s).addEventListener('input', render));
+
+function init(){
+  loadAll();
+
+  $('#storeSel').innerHTML = STORES.map(s=>`<option ${s===state.store?'selected':''}>${esc(s)}</option>`).join('');
+  $('#f_store').innerHTML  = STORES.map(s=>`<option ${s===state.store?'selected':''}>${esc(s)}</option>`).join('');
+  $('#f_cat').innerHTML    = CATS.map(c=>`<option ${c==='기타(미분류)'?'selected':''}>${esc(c)}</option>`).join('');
+
+  applyCfgToInputs();
+  setEngine(state.engine || 'ai');
+  resetForm();
+  render();
+  setSaveState(state.rows.length ? `저장됨 · ${state.rows.length}건` : '준비 완료');
+}
+init();
+</script>
+</body>
+</html>
