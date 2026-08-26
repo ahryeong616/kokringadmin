@@ -1,0 +1,35 @@
+{
+  "slug": "graydoll",
+  "brand": "KOKRING",
+  "name": {
+    "en": "Gray Doll Grip Cover",
+    "ko": "그레이돌 그립커버"
+  },
+  "tagline": "라켓 손잡이를 지키는 가장 사랑스러운 방법",
+  "lead": "부드러운 보아 원단의 인형과 촘촘한 립 니트 커버가 하나로. 라켓을 세워두는 순간마다 시선이 머무는, 실용과 취향을 함께 담은 그립커버입니다.",
+  "specs": [
+    { "label": "소재",  "ko": "보아 부클 폴리에스터 · 립 니트 아크릴", "en": "Boucle Polyester · Rib Knit Acrylic" },
+    { "label": "구성",  "ko": "그립커버 1개 · 인형 부착형 · 전용 파우치", "en": "1 Grip Cover · Attached Doll · Pouch" },
+    { "label": "호환",  "ko": "배드민턴 · 테니스 · 골프 드라이버 그립", "en": "Badminton · Tennis · Golf Driver" },
+    { "label": "특징",  "ko": "미끄럼 방지 립 조직 · 땀 흡수 · 손세탁 가능", "en": "Anti-slip Rib · Sweat Absorbing · Hand Wash" },
+    { "label": "사이즈", "ko": "커버 120 × 34.5mm · 인형 높이 약 75mm", "en": "Cover 120 × 34.5mm · Doll H 75mm" },
+    { "label": "디자인", "ko": "5가지 컬러웨이 전개", "en": "Available in 5 Colorways" }
+  ],
+  "features": [
+    { "title": "촘촘한 립 니트 조직", "desc": "손에 착 감기는 립 조직이 그립을 단단히 잡아주고, 플레이 중 흐른 땀을 빠르게 흡수합니다." },
+    { "title": "포근한 보아 부클 인형", "desc": "결이 살아 있는 보아 부클 원단으로 만들어 오래 만져도 형태가 무너지지 않습니다." },
+    { "title": "라켓을 가리지 않는 설계", "desc": "그립 끝에서 12cm만 감싸 스윙 밸런스에 영향을 주지 않습니다." }
+  ],
+  "colors": [
+    { "ko": "크림 아이보리", "en": "Cream Ivory",  "hex": "#F2EBDD" },
+    { "ko": "헤더 그레이",   "en": "Heather Grey",  "hex": "#9C9C9C" },
+    { "ko": "차콜 블랙",     "en": "Charcoal Black","hex": "#1C1C1E" },
+    { "ko": "실버 미스트",   "en": "Silver Mist",   "hex": "#C9CDD2" },
+    { "ko": "퓨어 화이트",   "en": "Pure White",    "hex": "#FBFBFB" }
+  ],
+  "notice": [
+    "모니터 환경에 따라 실제 색상과 차이가 있을 수 있습니다.",
+    "인형 부착부는 손세탁 후 그늘에서 건조해 주세요.",
+    "수제 봉제 특성상 개체마다 미세한 차이가 있습니다."
+  ]
+}

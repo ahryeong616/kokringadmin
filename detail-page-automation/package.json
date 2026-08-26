@@ -1,0 +1,14 @@
+{
+  "name": "detail-page-automation",
+  "version": "1.0.0",
+  "description": "상품 상세페이지 대량 생산 자동화 시스템",
+  "type": "commonjs",
+  "main": "generate.js",
+  "scripts": {
+    "generate": "node generate.js",
+    "all": "node generate.js --all"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
