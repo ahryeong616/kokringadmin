@@ -93,6 +93,15 @@
   details.set summary{cursor:pointer;font-weight:700;padding:4px 0}
   .warnbox{background:var(--midbg);border:1px solid var(--dashed);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:13px}
   .thumb-cell img{width:46px;height:46px;object-fit:cover;border-radius:7px;cursor:zoom-in}
+  .storebar{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px}
+  .storechip{border:1px solid var(--line);background:var(--soft);border-radius:11px;padding:9px 12px;min-width:150px}
+  .storechip b{display:block;font-size:13.5px;margin-bottom:3px}
+  .storechip .win{color:var(--good);font-weight:700}
+  td.best{background:var(--okbg);font-weight:700}
+  td.worst{color:var(--bad)}
+  .grpname{display:flex;align-items:center;gap:6px}
+  .grpname button{padding:1px 6px;font-size:12px;line-height:1.5;border-radius:6px}
+  .cnt{font-size:11.5px;color:var(--muted)}
   dialog{border:none;border-radius:14px;padding:0;max-width:92vw;box-shadow:var(--shadow);background:var(--panel)}
   dialog img{display:block;max-width:88vw;max-height:80vh}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid #cbd6ea;border-top-color:var(--brand);
@@ -214,6 +223,7 @@
           <div><label class="f">쿠팡 판매가(예정)</label><input id="f_sell" inputmode="numeric"></div>
           <div><label class="f">온라인판매금지</label><select id="f_noon"><option value=""></option><option value="Y">Y</option></select></div>
           <div style="grid-column:span 2"><label class="f">상품링크</label><input id="f_link" placeholder="https://"></div>
+          <div style="grid-column:span 2"><label class="f">비교이름 (비우면 상품명으로 자동 판단)</label><input id="f_group" placeholder="예: 아크릴수세미 3개입"></div>
           <div style="grid-column:span 2"><label class="f">비고</label><input id="f_memo"></div>
         </div>
         <div class="row" style="margin-top:13px">
@@ -263,7 +273,61 @@
     <p class="mini" style="margin:9px 0 0">쿠팡판매가는 표에서 바로 고칠 수 있습니다. 비워두면 손익분기가·목표마진가만 계산됩니다.</p>
   </section>
 
-  <!-- ===== 5. 설정 ===== -->
+  <!-- ===== 5. 매장별 가격 비교 ===== -->
+  <section class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">⚖️ 매장별 가격 비교</h2>
+      <div class="row">
+        <button type="button" id="btnCsvCompare">비교표 CSV</button>
+      </div>
+    </div>
+
+    <div class="grid g4" style="margin-bottom:14px">
+      <div>
+        <label class="f">비교 기준</label>
+        <select id="cmpBasis">
+          <option value="unit">실매입 단가 (부가세·포장수량 반영)</option>
+          <option value="price">표시가 그대로</option>
+        </select>
+      </div>
+      <div>
+        <label class="f">같은 상품으로 묶는 기준</label>
+        <select id="cmpThreshold">
+          <option value="0.5">느슨하게 (이름이 많이 달라도 묶음)</option>
+          <option value="0.6" selected>보통 (권장)</option>
+          <option value="0.78">엄격하게 (거의 같아야 묶음)</option>
+        </select>
+      </div>
+      <div>
+        <label class="f">보기</label>
+        <select id="cmpOnlyMulti">
+          <option value="1" selected>2곳 이상에서 조사된 것만</option>
+          <option value="">전부 보기</option>
+        </select>
+      </div>
+      <div>
+        <label class="f">상품 검색</label>
+        <input id="cmpQ" placeholder="상품명">
+      </div>
+    </div>
+
+    <div id="cmpStores" class="storebar"></div>
+
+    <div id="cmpEmpty" class="warnbox hidden" style="margin-bottom:12px"></div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr id="cmpHead"></tr></thead>
+        <tbody id="cmpBody"></tbody>
+      </table>
+    </div>
+    <p class="mini" style="margin:9px 0 0">
+      상품명은 매장마다 조금씩 다르게 적히므로 <b>이름 유사도와 상품코드</b>로 자동으로 묶습니다.
+      잘못 묶였거나 안 묶였으면 상품명 옆 <b>✎</b> 를 눌러 <b>비교이름</b>을 같게 지어 주세요. 같은 비교이름은 무조건 함께 묶입니다.
+    </p>
+  </section>
+
+  <!-- ===== 6. 설정 ===== -->
   <section class="card">
     <details class="set">
       <summary>⚙️ 판매비용 기준값 (엑셀 '수수료표'와 동일)</summary>
@@ -949,9 +1013,272 @@ function commitPending(p){
     id: uid(), store: p.store, name: p.name, cat: p.cat, price: intOf(p.price),
     listPrice: intOf(p.listPrice), box: p.box, loc: p.loc, code: p.code,
     vat: p.vat, packQty: 1, bundleQty: 1, sell: 0, link: '', noOnline: '',
-    memo: p.memo, photo: p.photo, date: new Date().toISOString().slice(0,10)
+    group: '', memo: p.memo, photo: p.photo, date: new Date().toISOString().slice(0,10)
   });
 }
+
+/* =========================================================================
+   매장별 가격 비교
+   같은 상품이 매장마다 다른 이름으로 적히므로(특히 OCR), 이름 유사도와 상품코드로 묶는다.
+   ========================================================================= */
+
+// 비교용 이름 정규화: 공백·기호·괄호를 없애고 소문자로. 용량·수량 표기는 다른 상품이므로 남긴다.
+function normName(str){
+  return String(str||'')
+    .toLowerCase()
+    .replace(/[\s()\[\]{}<>·・,.\-_/\\|+*~!@#$%^&='"?:;]/g, '')
+    .trim();
+}
+// 용량·수량은 '같은 상품'의 하드 제약이다.
+// 이름 유사도만 쓰면 500ml 와 1L(0.74)이 OCR로 깨진 같은 상품(0.67)보다 높게 나와 잘못 묶인다.
+function specTokens(name){
+  const out = new Set();
+  const src = String(name||'').toLowerCase();
+  const re = /([0-9]+(?:[.,][0-9]+)?)\s*(ml|밀리|l|리터|kg|킬로|g|그램|매|장|개입|개|입|p|ea|팩|세트|구|호|cm|mm)/g;
+  let m;
+  while((m = re.exec(src))){
+    const n = parseFloat(m[1].replace(',', '.'));
+    if(!isFinite(n)) continue;
+    const u = m[2];
+    if(u === 'l' || u === '리터')       out.add(Math.round(n*1000) + 'ml');
+    else if(u === 'ml' || u === '밀리') out.add(Math.round(n) + 'ml');
+    else if(u === 'kg' || u === '킬로') out.add(Math.round(n*1000) + 'g');
+    else if(u === 'g' || u === '그램')  out.add(Math.round(n) + 'g');
+    else if(u === 'cm' || u === 'mm')   out.add(Math.round(n) + u);
+    else out.add(Math.round(n) + 'ea');   // 개·입·매·장·p·ea·팩·세트 는 모두 수량으로 본다
+  }
+  // 대/중/소 사이즈 표기. '비치백중(색상랜덤)' 처럼 괄호 앞이나 이름 끝에 붙은 것만 인정한다.
+  const size = String(name||'').match(/(대|중|소)(?=\s*[(（]|\s*$)/);
+  if(size) out.add('size:' + size[1]);
+  return out;
+}
+// 두 상품의 용량·수량이 서로 어긋나면(둘 다 표기가 있는데 겹치는 게 없으면) 다른 상품이다.
+function specConflict(a, b){
+  if(!a.size || !b.size) return false;
+  for(const t of a) if(b.has(t)) return false;
+  return true;
+}
+
+const bigramCache = new Map();
+function bigrams(str){
+  let m = bigramCache.get(str);
+  if(m) return m;
+  m = new Map();
+  for(let i=0;i<str.length-1;i++){ const g = str.slice(i,i+2); m.set(g, (m.get(g)||0)+1); }
+  if(bigramCache.size > 4000) bigramCache.clear();
+  bigramCache.set(str, m);
+  return m;
+}
+// Dice 계수: 두 글자 묶음이 얼마나 겹치는지 (0~1). 한글에도 잘 맞는다.
+function similarity(a, b){
+  if(!a || !b) return 0;
+  if(a === b) return 1;
+  if(a.length < 2 || b.length < 2) return 0;
+  const A = bigrams(a), B = bigrams(b);
+  let inter = 0, na = 0, nb = 0;
+  A.forEach(v => na += v);
+  B.forEach(v => nb += v);
+  A.forEach((v,k)=>{ const w = B.get(k); if(w) inter += Math.min(v,w); });
+  return (na+nb) ? (2*inter)/(na+nb) : 0;
+}
+
+// 비교 기준 금액: 부가세·포장수량을 반영한 낱개 단가(기본) 또는 표시가
+function basisPrice(r, basis){
+  const p = num(r.price);
+  if(!p) return 0;
+  if(basis === 'price') return p;
+  const vat = r.vat === 'Y' ? (1 + num(cfg.vatbuy)) : 1;
+  return p * vat / Math.max(1, num(r.packQty) || 1);
+}
+
+// 같은 상품끼리 묶기 (union-find)
+function buildGroups(rows, threshold){
+  const parent = rows.map((_,i)=>i);
+  const find = i => { while(parent[i] !== i){ parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (a,b)=>{ a = find(a); b = find(b); if(a !== b) parent[b] = a; };
+
+  // 1) 사람이 정한 비교이름이 같으면 무조건 함께 묶는다
+  const byManual = new Map();
+  rows.forEach((r,i)=>{
+    const g = normName(r.group);
+    if(!g) return;
+    if(byManual.has(g)) union(byManual.get(g), i); else byManual.set(g, i);
+  });
+  // 2) 상품코드가 같으면 같은 상품이다
+  const byCode = new Map();
+  rows.forEach((r,i)=>{
+    const c = String(r.code||'').replace(/\D/g,'');
+    if(c.length < 6) return;
+    if(byCode.has(c)) union(byCode.get(c), i); else byCode.set(c, i);
+  });
+  // 3) 남은 것은 '용량·수량이 어긋나지 않고' 이름이 충분히 비슷하면 묶는다
+  const manualKey = rows.map(r => normName(r.group));
+  const norm = rows.map((r,i) => manualKey[i] || normName(r.name));
+  const specs = rows.map(r => specTokens(r.group || r.name));
+  for(let i=0;i<rows.length;i++){
+    if(!norm[i]) continue;
+    for(let j=i+1;j<rows.length;j++){
+      if(!norm[j]) continue;
+      if(find(i) === find(j)) continue;
+      // 사람이 서로 다른 비교이름을 붙였으면 그 뜻을 존중해 묶지 않는다
+      if(manualKey[i] && manualKey[j] && manualKey[i] !== manualKey[j]) continue;
+      if(specConflict(specs[i], specs[j])) continue;
+      const la = norm[i].length, lb = norm[j].length;
+      if(Math.min(la,lb) / Math.max(la,lb) < 0.5) continue;   // 길이가 너무 다르면 건너뛴다
+      if(similarity(norm[i], norm[j]) >= threshold) union(i,j);
+    }
+  }
+
+  const groups = new Map();
+  rows.forEach((r,i)=>{
+    const k = find(i);
+    if(!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  });
+  return [...groups.values()];
+}
+
+function compareData(){
+  const basis = $('#cmpBasis').value;
+  const threshold = parseFloat($('#cmpThreshold').value);
+  const onlyMulti = $('#cmpOnlyMulti').value === '1';
+  const q = $('#cmpQ').value.trim().toLowerCase();
+
+  const rows = state.rows.filter(r => num(r.price) > 0 && (r.name || r.code));
+  const groups = buildGroups(rows, threshold).map(members => {
+    // 같은 매장에서 여러 번 조사됐으면 그 매장의 최저가만 쓴다
+    const perStore = new Map();
+    members.forEach(r => {
+      const v = basisPrice(r, basis);
+      if(!v) return;
+      const cur = perStore.get(r.store);
+      if(!cur || v < cur.value) perStore.set(r.store, { value: v, row: r });
+    });
+    const label = (members.find(r => (r.group||'').trim())?.group
+                || members.slice().sort((a,b)=>(b.name||'').length-(a.name||'').length)[0]?.name
+                || '(이름 없음)').trim();
+    const vals = [...perStore.values()].map(x => x.value);
+    const min = vals.length ? Math.min(...vals) : 0;
+    const max = vals.length ? Math.max(...vals) : 0;
+    const bestStore = [...perStore.entries()].find(([,x]) => x.value === min)?.[0] || '';
+    return {
+      label, members, perStore, stores: perStore.size,
+      min, max, gap: max - min, saving: max > 0 ? (max - min) / max : 0, bestStore
+    };
+  });
+
+  const visible = groups
+    .filter(g => g.stores >= (onlyMulti ? 2 : 1))
+    .filter(g => !q || g.label.toLowerCase().includes(q)
+                   || g.members.some(r => (r.name||'').toLowerCase().includes(q)))
+    .sort((a,b) => b.gap - a.gap || b.stores - a.stores);
+
+  const storeNames = [...new Set(visible.flatMap(g => [...g.perStore.keys()]))].sort();
+  return { groups: visible, storeNames, basis };
+}
+
+function renderCompare(){
+  if(!$('#cmpBasis')) return;
+  const { groups, storeNames, basis } = compareData();
+
+  // 매장 요약: 몇 품목을 조사했고 그 중 몇 번 최저가였나
+  const stat = new Map();
+  state.rows.forEach(r => {
+    if(!r.store) return;
+    if(!stat.has(r.store)) stat.set(r.store, { items:0, wins:0, compared:0 });
+    stat.get(r.store).items++;
+  });
+  groups.forEach(g => {
+    g.perStore.forEach((_, st) => { if(stat.has(st)) stat.get(st).compared++; });
+    if(g.bestStore && stat.has(g.bestStore)) stat.get(g.bestStore).wins++;
+  });
+  $('#cmpStores').innerHTML = [...stat.entries()]
+    .filter(([st]) => storeNames.includes(st) || true)
+    .sort((a,b) => b[1].wins - a[1].wins || b[1].items - a[1].items)
+    .map(([st, v]) => `<div class="storechip">
+        <b>${esc(st)}</b>
+        <span class="mini">조사 ${v.items}건 · 비교 ${v.compared}건</span><br>
+        <span class="${v.wins?'win':'mini'}">최저가 ${v.wins}건${v.compared?` (${Math.round(v.wins/v.compared*100)}%)`:''}</span>
+      </div>`).join('') || '';
+
+  const empty = $('#cmpEmpty');
+  if(!groups.length){
+    empty.classList.remove('hidden');
+    empty.innerHTML = state.rows.length
+      ? '아직 <b>두 곳 이상에서 조사된 같은 상품</b>이 없습니다. 다른 매장에서 같은 상품을 조사하면 여기에 자동으로 나란히 놓입니다.<br>같은 상품인데 안 묶이면 묶는 기준을 <b>느슨하게</b>로 바꾸거나, 상품명 옆 ✎ 로 <b>비교이름</b>을 같게 지어 주세요.'
+      : '조사한 상품이 없습니다. 위에서 가격표 사진을 올려 보세요.';
+    $('#cmpHead').innerHTML = ''; $('#cmpBody').innerHTML = '';
+    return;
+  }
+  empty.classList.add('hidden');
+
+  const unitLabel = basis === 'price' ? '표시가' : '실매입 단가';
+  $('#cmpHead').innerHTML =
+    `<th>상품 (${unitLabel} 기준)</th>` +
+    storeNames.map(st => `<th class="num">${esc(st)}</th>`).join('') +
+    `<th class="num">최저</th><th class="num">최고</th><th class="num">차액</th><th class="num">절감률</th><th>최저가 매장</th>`;
+
+  $('#cmpBody').innerHTML = groups.map((g, gi) => {
+    const cells = storeNames.map(st => {
+      const hit = g.perStore.get(st);
+      if(!hit) return '<td class="num mini">—</td>';
+      const cls = g.stores > 1 && hit.value === g.min ? 'best'
+                : g.stores > 1 && hit.value === g.max ? 'worst' : '';
+      return `<td class="num ${cls}">${won(hit.value)}</td>`;
+    }).join('');
+    return `<tr data-gi="${gi}">
+      <td><div class="grpname">
+            <button type="button" data-act="rename" title="비교이름 정하기">✎</button>
+            <span title="${esc(g.members.map(r=>r.name).join(' / '))}">${esc(g.label)}</span>
+            <span class="cnt">${g.members.length}건 · ${g.stores}곳</span>
+          </div></td>
+      ${cells}
+      <td class="num">${g.stores>1?won(g.min):''}</td>
+      <td class="num">${g.stores>1?won(g.max):''}</td>
+      <td class="num" style="${g.gap>0?'color:var(--good);font-weight:700':''}">${g.gap>0?won(g.gap):''}</td>
+      <td class="num">${g.gap>0?pct(g.saving):''}</td>
+      <td>${g.stores>1?esc(g.bestStore):''}</td>
+    </tr>`;
+  }).join('');
+
+  compareCache = groups;
+}
+let compareCache = [];
+
+$('#cmpBody').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-act="rename"]');
+  if(!btn) return;
+  const gi = Number(e.target.closest('tr').dataset.gi);
+  const g = compareCache[gi];
+  if(!g) return;
+  const cur = g.members.find(r => (r.group||'').trim())?.group || g.label;
+  const next = prompt(
+    '이 상품들을 묶을 "비교이름"을 정하세요.\n같은 비교이름을 쓴 상품은 매장이 달라도 항상 함께 비교됩니다.\n\n' +
+    g.members.map(r => '· [' + r.store + '] ' + (r.name||'(이름없음)')).join('\n'), cur);
+  if(next === null) return;
+  const v = next.trim();
+  g.members.forEach(r => { r.group = v; });
+  renderCompare(); render(); save();
+});
+
+['#cmpBasis','#cmpThreshold','#cmpOnlyMulti','#cmpQ'].forEach(sel=>{
+  $(sel).addEventListener('input', renderCompare);
+});
+
+$('#btnCsvCompare').addEventListener('click', async ()=>{
+  const { groups, storeNames, basis } = compareData();
+  if(!groups.length){ alert('비교할 자료가 없습니다.'); return; }
+  const head = ['상품(비교이름)','조사건수','조사매장수', ...storeNames,
+                '최저가(원)','최고가(원)','차액(원)','절감률','최저가 매장',
+                basis === 'price' ? '기준: 표시가' : '기준: 실매입 단가(부가세·포장수량 반영)'];
+  const body = groups.map(g => [
+    g.label, g.members.length, g.stores,
+    ...storeNames.map(st => { const h = g.perStore.get(st); return h ? Math.round(h.value) : ''; }),
+    g.stores>1?Math.round(g.min):'', g.stores>1?Math.round(g.max):'',
+    g.gap>0?Math.round(g.gap):'', g.gap>0?g.saving.toFixed(4):'', g.stores>1?g.bestStore:'', ''
+  ]);
+  await download('매장별_가격비교.csv', toCsv([head, ...body]));
+});
 
 /* =========================================================================
    표 렌더링
@@ -1008,6 +1335,7 @@ function render(){
   $('#sMax').textContent = prices.length ? won(Math.max(...prices)) : '0원';
 
   syncFilterOptions();
+  renderCompare();
 }
 
 function syncFilterOptions(){
@@ -1053,7 +1381,7 @@ function fillForm(r){
   $('#f_vat').value = r.vat || 'N'; $('#f_pack').value = r.packQty || 1;
   $('#f_bundle').value = r.bundleQty || 1; $('#f_sell').value = r.sell || '';
   $('#f_noon').value = r.noOnline || ''; $('#f_link').value = r.link || '';
-  $('#f_memo').value = r.memo || '';
+  $('#f_group').value = r.group || ''; $('#f_memo').value = r.memo || '';
   $('#f_submit').textContent = '수정 저장';
   $('#form').closest('details').open = true;
   $('#form').scrollIntoView({behavior:'smooth', block:'center'});
@@ -1078,7 +1406,8 @@ $('#form').addEventListener('submit', e=>{
     box: $('#f_box').value.trim(), loc: $('#f_loc').value.trim(), code: $('#f_code').value.trim(),
     vat: $('#f_vat').value, packQty: Math.max(1,intOf($('#f_pack').value)||1),
     bundleQty: Math.max(1,intOf($('#f_bundle').value)||1), sell: intOf($('#f_sell').value),
-    noOnline: $('#f_noon').value, link: $('#f_link').value.trim(), memo: $('#f_memo').value.trim()
+    noOnline: $('#f_noon').value, link: $('#f_link').value.trim(),
+    group: $('#f_group').value.trim(), memo: $('#f_memo').value.trim()
   };
   if(editingId){
     const r = state.rows.find(x=>x.id===editingId);
@@ -1136,10 +1465,10 @@ const csvCell = v => { const s = String(v==null?'':v); return /[",\n]/.test(s) ?
 const toCsv = rows => rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
 
 $('#btnCsvPrice').addEventListener('click', async ()=>{
-  const head = ['No','매장명','상품명','분류(추정)','판매가(원)','정가/온라인정찰가(원)','정가 대비 할인율',
+  const head = ['No','매장명','상품명','비교이름','분류(추정)','판매가(원)','정가/온라인정찰가(원)','정가 대비 할인율',
                 '박스입수','창고 위치코드','온라인판매금지','상품코드','상품링크','비고','요약포함','검색키','조사일'];
   const body = visibleRows().map((r,i)=>[
-    i+1, r.store, r.name, r.cat, r.price||'', r.listPrice||'',
+    i+1, r.store, r.name, r.group||'', r.cat, r.price||'', r.listPrice||'',
     (r.listPrice>0 && r.price>0) ? (1 - r.price/r.listPrice).toFixed(4) : '',
     r.box, r.loc, r.noOnline, r.code, r.link, r.memo, 'Y', `${r.store}|${r.price||''}`, r.date||''
   ]);
