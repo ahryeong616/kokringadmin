@@ -6,10 +6,32 @@
 <title>현장 시세조사 · 사진 자동입력</title>
 <link rel="icon" href="data:,">
 <style>
+  /* 밝은 창고에서 쓰는 도구라 라이트를 기본으로 두고, 어두운 테마 뷰어에도 맞춘다. */
   :root{
-    --bg:#f4f6fb; --panel:#fff; --line:#e2e7f0; --ink:#151b26; --muted:#66708a;
-    --brand:#2f6bff; --brand-soft:#e8efff; --good:#0f9d58; --warn:#e8a33d; --bad:#d93a3a;
+    --bg:#f4f6fb; --panel:#ffffff; --soft:#f7f9fd; --hover:#eef2f9;
+    --line:#e2e7f0; --dashed:#c3d0ea; --ink:#151b26; --muted:#66708a;
+    --brand:#2f6bff; --brand-soft:#e8efff;
+    --good:#0f9d58; --warn:#96660f; --bad:#d93a3a;
+    --okbg:#e6f6ec; --midbg:#fdf3e2; --nobg:#fdeaea;
     --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10141c; --panel:#171d28; --soft:#1b2230; --hover:#212a3a;
+      --line:#2b3444; --dashed:#3b4759; --ink:#e7ecf5; --muted:#9aa6bd;
+      --brand:#7ea0ff; --brand-soft:#1d2942;
+      --good:#45c98a; --warn:#e2ab5c; --bad:#f5807b;
+      --okbg:#12301f; --midbg:#302713; --nobg:#331a1a;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10141c; --panel:#171d28; --soft:#1b2230; --hover:#212a3a;
+    --line:#2b3444; --dashed:#3b4759; --ink:#e7ecf5; --muted:#9aa6bd;
+    --brand:#7ea0ff; --brand-soft:#1d2942;
+    --good:#45c98a; --warn:#e2ab5c; --bad:#f5807b;
+    --okbg:#12301f; --midbg:#302713; --nobg:#331a1a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -24,54 +46,54 @@
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
   label.f{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}
   input,select,textarea,button{font:inherit;color:inherit}
-  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink)}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
   .grid{display:grid;gap:11px}
   .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
   .g4{grid-template-columns:repeat(4,1fr)} .g6{grid-template-columns:repeat(6,1fr)}
   @media(max-width:860px){.g3,.g4,.g6{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:520px){.g2,.g3,.g4,.g6{grid-template-columns:1fr}}
-  button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 14px;font-weight:600}
-  button:hover{border-color:#c9d2e3}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:9px 14px;font-weight:600}
+  button:hover{border-color:var(--dashed)}
   .primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .primary:hover{background:#2559dd;border-color:#2559dd}
   .danger{color:var(--bad)}
   .row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
-  .drop{border:2px dashed #c3d0ea;border-radius:var(--radius);background:linear-gradient(180deg,#fbfcff,#f3f7ff);
+  .drop{border:2px dashed var(--dashed);border-radius:var(--radius);background:var(--soft);
         padding:26px 18px;text-align:center;transition:.15s}
   .drop.hot{border-color:var(--brand);background:var(--brand-soft)}
   .drop .big{font-size:34px;line-height:1}
   .drop p{margin:8px 0 0;color:var(--muted);font-size:13px}
   .hidden{display:none!important}
   .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}
-  .pill.ok{background:#e6f6ec;color:var(--good)} .pill.no{background:#fdeaea;color:var(--bad)}
-  .pill.mid{background:#fdf3e2;color:#96660f}
+  .pill.ok{background:var(--okbg);color:var(--good)} .pill.no{background:var(--nobg);color:var(--bad)}
+  .pill.mid{background:var(--midbg);color:var(--warn)}
   .engine{display:flex;gap:8px;flex-wrap:wrap}
   .engine button{flex:1;min-width:150px}
-  .engine button.on{background:var(--brand-soft);border-color:var(--brand);color:#1b4bc4}
+  .engine button.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand)}
   .log{background:#0f1626;color:#cfe0ff;border-radius:10px;padding:10px 12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
        max-height:150px;overflow:auto;white-space:pre-wrap;word-break:break-all}
   .cardlist{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
-  .pend{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fcfdff}
-  .pend .thumb{width:100%;height:150px;object-fit:cover;border-radius:9px;background:#eef1f7;margin-bottom:10px}
+  .pend{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--soft)}
+  .pend .thumb{width:100%;height:150px;object-fit:cover;border-radius:9px;background:var(--hover);margin-bottom:10px}
   .pend .grid{gap:8px}
   .pend input,.pend select{padding:7px 9px;font-size:13.5px}
   .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
   table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:1180px}
   th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-  th{background:#f7f9fd;font-size:12px;color:var(--muted);position:sticky;top:0;z-index:1}
+  th{background:var(--soft);font-size:12px;color:var(--muted);position:sticky;top:0;z-index:1}
   td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-  tbody tr:hover{background:#fafcff}
+  tbody tr:hover{background:var(--hover)}
   td input{padding:5px 7px;font-size:13px;width:96px;text-align:right}
   .mini{font-size:12px;color:var(--muted)}
   .stat{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
   @media(max-width:640px){.stat{grid-template-columns:repeat(2,1fr)}}
-  .stat div{background:#f7f9fd;border:1px solid var(--line);border-radius:11px;padding:11px}
+  .stat div{background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:11px}
   .stat b{display:block;font-size:19px;margin-top:3px}
   details.set summary{cursor:pointer;font-weight:700;padding:4px 0}
-  .warnbox{background:#fff8e8;border:1px solid #f0dcae;color:#7a5a10;border-radius:10px;padding:10px 12px;font-size:13px}
+  .warnbox{background:var(--midbg);border:1px solid var(--dashed);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:13px}
   .thumb-cell img{width:46px;height:46px;object-fit:cover;border-radius:7px;cursor:zoom-in}
-  dialog{border:none;border-radius:14px;padding:0;max-width:92vw;box-shadow:var(--shadow)}
+  dialog{border:none;border-radius:14px;padding:0;max-width:92vw;box-shadow:var(--shadow);background:var(--panel)}
   dialog img{display:block;max-width:88vw;max-height:80vh}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid #cbd6ea;border-top-color:var(--brand);
         border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
@@ -106,8 +128,8 @@
       <div>
         <label class="f">인식 엔진</label>
         <div class="engine">
-          <button type="button" id="engAi" data-eng="ai">🤖 AI 정밀인식</button>
-          <button type="button" id="engOcr" data-eng="ocr">🆓 무료 OCR</button>
+          <button type="button" id="engOcr" data-eng="ocr">무료 인식 · 무제한</button>
+          <button type="button" id="engAi" data-eng="ai">AI 정밀인식 (유료)</button>
         </div>
       </div>
     </div>
@@ -120,15 +142,17 @@
       <div>
         <label class="f">모델</label>
         <select id="modelSel">
-          <option value="claude-opus-5">Claude Opus 5 (가장 정확)</option>
-          <option value="claude-sonnet-5">Claude Sonnet 5 (빠름·저렴)</option>
-          <option value="claude-haiku-4-5">Claude Haiku 4.5 (가장 저렴)</option>
+          <option value="claude-haiku-4-5">Haiku 4.5 (사진당 약 9원)</option>
+          <option value="claude-sonnet-5">Sonnet 5 (약 18원)</option>
+          <option value="claude-opus-5">Opus 5 (약 45원 · 가장 정확)</option>
         </select>
       </div>
     </div>
     <div id="ocrNote" class="warnbox hidden" style="margin-bottom:12px">
-      무료 OCR은 인터넷에서 한글 인식 데이터를 처음 한 번 내려받습니다(약 15MB). 흐릿하거나 기울어진 사진은 인식률이 떨어지니,
-      가격표가 화면을 꽉 채우도록 정면에서 찍어 주세요. 정확도가 중요하면 <b>AI 정밀인식</b>을 쓰세요.
+      <b>무료 인식은 몇 글자씩 틀립니다.</b> 깨끗한 가격표에서도 상품명 일부와 '원' 글자를 자주 흘립니다
+      (실측 정확도 약 70~80%). 가격·상품코드·위치코드는 비교적 잘 읽으니,
+      <b>인식 결과 확인</b> 칸에서 상품명만 훑어 고치는 방식으로 쓰시는 게 가장 빠릅니다.
+      가격표가 화면을 꽉 채우도록 정면에서, 밝은 곳에서 찍으면 눈에 띄게 좋아집니다.
     </div>
 
     <div id="drop" class="drop">
@@ -136,15 +160,22 @@
       <div style="font-weight:700;margin-top:6px">사진을 여기에 끌어놓기</div>
       <p>또는 아래 버튼 · 클립보드 붙여넣기(Ctrl+V)도 됩니다. 여러 장 한꺼번에 가능합니다.</p>
       <div class="row" style="justify-content:center;margin-top:12px">
-        <button type="button" class="primary" id="btnCam">📷 사진 촬영</button>
-        <button type="button" id="btnPick">🖼 앨범 / 파일 선택</button>
+        <button type="button" class="primary" id="btnCam">사진 촬영</button>
+        <button type="button" id="btnPick">앨범 / 파일 선택</button>
       </div>
+      <label class="row" style="justify-content:center;margin-top:12px;font-size:13px;color:var(--muted)">
+        <input type="checkbox" id="autoAdd" style="width:auto;margin-right:7px">
+        확인 없이 바로 표에 추가 (사진이 아주 많을 때)
+      </label>
       <input id="camInput" type="file" accept="image/*" capture="environment" multiple class="hidden">
       <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
     </div>
 
     <div id="progress" class="row hidden" style="margin-top:12px">
       <span class="spin"></span><span id="progressText" class="mini"></span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button type="button" id="btnCancel" class="danger hidden">인식 중지</button>
     </div>
     <div id="log" class="log hidden" style="margin-top:10px"></div>
   </section>
@@ -307,10 +338,11 @@ const CAT_RULES = [
 const LS_KEY = 'kokring_field_survey_v2';
 const LS_CFG = 'kokring_field_survey_cfg_v2';
 
-let state = { rows: [], store: STORES[0], engine: 'ai' };
+let state = { rows: [], store: STORES[0], engine: 'ocr' };
 let cfg   = { ...DEFAULTS, apiKey:'', model:'claude-opus-5' };
 let pending = [];
 let editingId = null;
+let running = false;
 
 function loadAll(){
   try{ const s = JSON.parse(localStorage.getItem(LS_KEY)||'null'); if(s) state = {...state, ...s}; }catch(e){}
@@ -436,29 +468,29 @@ async function toThumb(dataUrl){
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', 0.6);
 }
-// OCR 전처리: 확대 + 흑백 + 대비 강화 (한글 가격표 인식률이 크게 올라감)
-async function toOcrImage(dataUrl){
+// OCR 전처리: 목표 해상도로 맞춘 뒤 흑백으로.
+//
+// 실측(가격표 706px 기준): 2배 확대가 최적(conf 79)이고 2.4배부터는 한글이 통째로
+// 라틴 문자로 무너진다(conf 52). 그래서 배율을 고정하지 않고 '긴 변 1800px'을 목표로 하되
+// 확대는 2배까지만 한다. 대비 강화도 실측에서 정확도를 떨어뜨려 넣지 않는다.
+const OCR_TARGET = 1800;
+async function toOcrImage(dataUrl, mult = 1){
   const img = await loadImage(dataUrl);
-  const want = 1800;
-  const s = Math.max(1, Math.min(2.5, want/Math.max(img.width, img.height)));
+  const base = Math.max(img.width, img.height);
+  const scale = Math.max(0.4, Math.min(2, OCR_TARGET / base)) * mult;
   const c = document.createElement('canvas');
-  c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  c.width  = Math.max(1, Math.round(img.width  * scale));
+  c.height = Math.max(1, Math.round(img.height * scale));
   const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, c.width, c.height);
-  const d = ctx.getImageData(0, 0, c.width, c.height), p = d.data;
-  let sum = 0;
-  for(let i=0;i<p.length;i+=4){
-    const g = 0.299*p[i] + 0.587*p[i+1] + 0.114*p[i+2];
-    p[i]=p[i+1]=p[i+2]=g; sum += g;
-  }
-  const mean = sum / (p.length/4);
-  const k = 1.7;
-  for(let i=0;i<p.length;i+=4){
-    const v = Math.max(0, Math.min(255, (p[i]-mean)*k + 160));
-    p[i]=p[i+1]=p[i+2]=v;
+  const d = ctx.getImageData(0, 0, c.width, c.height), px = d.data;
+  for(let i=0;i<px.length;i+=4){
+    const g = 0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2];
+    px[i]=px[i+1]=px[i+2]=g;
   }
   ctx.putImageData(d, 0, 0);
-  return c.toDataURL('image/png');
+  return c;
 }
 
 /* =========================================================================
@@ -573,26 +605,110 @@ async function runAI(dataUrl){
 /* =========================================================================
    엔진 B — 무료 OCR (Tesseract.js) + 한국 가격표 전용 파서
    ========================================================================= */
-let tessWorker = null;
+// 내장 자산이 있으면 인터넷 없이 동작한다(오프라인판). 없으면 CDN에서 받아온다(가벼운 저장소판).
+function embed(id){ const el = document.getElementById(id); return el ? el.textContent : ''; }
+const HAS_EMBEDDED = !!embed('emb-worker');
+
 function loadScript(src){
   return new Promise((res, rej)=>{
     const s = document.createElement('script');
     s.src = src; s.onload = res;
-    s.onerror = ()=>rej(new Error('OCR 라이브러리를 내려받지 못했습니다. 인터넷 연결을 확인하세요.'));
+    s.onerror = ()=>rej(new Error('인식 엔진을 내려받지 못했습니다. 인터넷 연결을 확인하세요.'));
     document.head.appendChild(s);
   });
 }
-async function getWorker(onLog){
-  if(tessWorker) return tessWorker;
-  if(!window.Tesseract){
-    onLog('OCR 라이브러리 내려받는 중…');
-    await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js');
+
+// 워커 blob = [언어데이터 + fetch 가로채기] + [코어 wasm 소스] + [tesseract 워커 소스].
+//
+// 왜 이렇게 하나:
+//  · 코어가 전역 TesseractCore 를 정의해 두면 워커가 코어를 따로 내려받지 않는다.
+//  · 언어데이터를 langs 객체로 넘기는 공식 경로가 있지만, tesseract.js 5.1.0 은 그때
+//    초기화 문자열을 언어 이름(code)이 아니라 바이트(data)로 만드는 버그가 있어 Init 이 실패한다.
+//    그래서 langs 는 평범한 'kor','eng' 문자열로 두고, 워커 안의 fetch 만 가로채
+//    내장 언어데이터를 돌려준다.
+const FETCH_SHIM = `
+(function(){
+  var orig = self.fetch;
+  self.fetch = function(input){
+    var url = String((input && input.url) ? input.url : input);
+    var m = url.match(/([a-z]{2,8})\.traineddata(\.gz)?$/);
+    if(m && self.__TD && self.__TD[m[1]]){
+      var bin = atob(self.__TD[m[1]]);
+      var buf = new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
+      return Promise.resolve(new Response(buf, {status:200, headers:{'Content-Type':'application/octet-stream'}}));
+    }
+    return orig.apply(self, arguments);
+  };
+})();
+`;
+
+let workerBlobUrl = null;
+function embeddedWorkerUrl(){
+  if(workerBlobUrl) return workerBlobUrl;
+  const core = embed('emb-core'), wsrc = embed('emb-worker');
+  const kor = embed('emb-kor').trim(), eng = embed('emb-eng').trim();
+  if(!core || !wsrc || !kor) return null;
+  const table = 'self.__TD={"kor":"' + kor + '"' + (eng ? ',"eng":"' + eng + '"' : '') + '};\n';
+  workerBlobUrl = URL.createObjectURL(
+    new Blob([table, FETCH_SHIM, '\n;\n', core, '\n;\n', wsrc], {type:'text/javascript'}));
+  return workerBlobUrl;
+}
+
+async function ensureLib(onLog){
+  if(window.Tesseract) return;
+  onLog && onLog('인식 엔진 준비 중…');
+  await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js');
+  if(!window.Tesseract) throw new Error('인식 엔진을 시작하지 못했습니다.');
+}
+
+async function makeWorker(onLog){
+  await ensureLib(onLog);
+  const wUrl = embeddedWorkerUrl();
+  const logger = m => { if(onLog && m.status === 'recognizing text') onLog('글자 읽는 중 ' + Math.round((m.progress||0)*100) + '%'); };
+  if(wUrl){
+    // 오프라인판: 엔진·언어데이터가 파일 안에 들어 있다
+    return window.Tesseract.createWorker(['kor','eng'], 1, {
+      workerPath: wUrl, workerBlobURL: false,
+      langPath: 'embedded', gzip: true, cacheMethod: 'none', logger
+    });
   }
-  onLog('한글 인식 데이터 준비 중… (처음 한 번만, 조금 걸립니다)');
-  tessWorker = await window.Tesseract.createWorker(['kor','eng'], 1, {
-    logger: m => { if(m.status === 'recognizing text') onLog('글자 읽는 중 ' + Math.round((m.progress||0)*100) + '%'); }
-  });
-  return tessWorker;
+  // 저장소판: 언어데이터는 처음 한 번만 내려받고 브라우저에 캐시된다
+  onLog && onLog('한글 인식 데이터 준비 중… (처음 한 번만)');
+  return window.Tesseract.createWorker(['kor','eng'], 1, { logger });
+}
+
+/* ---- 워커 풀: 사진이 많을 때 CPU 코어 수만큼 동시에 처리한다 ---- */
+const pool = { workers: [], idle: [], starting: null, size: 0 };
+let cancelRun = false;
+
+function poolSize(){
+  const cores = navigator.hardwareConcurrency || 4;
+  return Math.max(1, Math.min(4, cores - 1));
+}
+async function poolInit(n, onLog){
+  if(pool.starting) return pool.starting;
+  pool.starting = (async ()=>{
+    const want = Math.min(n, poolSize());
+    const first = await makeWorker(onLog);          // 첫 워커로 엔진 기동 확인
+    pool.workers.push(first); pool.idle.push(first);
+    const rest = await Promise.all(
+      Array.from({length: Math.max(0, want-1)}, ()=>makeWorker(null).catch(()=>null)));
+    rest.filter(Boolean).forEach(w=>{ pool.workers.push(w); pool.idle.push(w); });
+    pool.size = pool.workers.length;
+    return pool.size;
+  })();
+  return pool.starting;
+}
+async function poolTake(){
+  while(!pool.idle.length) await new Promise(r=>setTimeout(r, 40));
+  return pool.idle.pop();
+}
+function poolGive(w){ pool.idle.push(w); }
+async function poolDispose(){
+  const ws = pool.workers.splice(0);
+  pool.idle.length = 0; pool.starting = null; pool.size = 0;
+  await Promise.all(ws.map(w=>w.terminate().catch(()=>{})));
 }
 
 // OCR 원문 → 필드 추출
@@ -607,28 +723,37 @@ function parseOcr(text){
   if(mLoc) out.loc = (mLoc[1]+'-'+mLoc[2]+'-'+mLoc[3]+'-'+mLoc[4]).toUpperCase().replace(/\s/g,'');
 
   // 박스입수
-  const mBox = raw.match(/(대박스|소박스|박스|BOX|박스당)\s*([0-9]{1,4})\s*(개|입|EA|ea)?/);
-  if(mBox) out.box = (mBox[1]+' '+mBox[2]+(mBox[3]||'개')).replace(/\s+/g,' ');
+  // '개'는 OCR이 '7]' '71' 처럼 흘리는 일이 잦아 단위는 없어도 인정한다
+  const mBox = raw.match(/(대박스|소박스|박스당|박스|BOX)\s*([0-9]{1,4})/i);
+  if(mBox) out.box = mBox[1] + ' ' + mBox[2] + '개';
 
   // 부가세 별도
   if(/부가\s*세?\s*별도|VAT\s*별도|\+VAT/i.test(raw)) out.vat = 'Y';
 
-  // 가격 후보: '원' 이 붙었거나 3자리 콤마가 있는 숫자
+  // 가격 후보.
+  // OCR은 '원'을 '워/2]/2!' 처럼 자주 흘리므로 3자리 묶음 숫자를 1순위 신호로 본다.
+  // \b 앵커를 쓰면 "3,6002]" 같은 잡음 뒤섞임에서 매칭이 통째로 실패한다.
   const priceCands = [];
-  const reWon = /([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})\s*(원|₩)/g;
+  const push = v => { if(v>=50 && v<=9999999) priceCands.push(v); };
   let m;
-  while((m = reWon.exec(raw))){ const v = intOf(m[1]); if(v>=50 && v<=9999999) priceCands.push(v); }
+  const reGroup = /([0-9]{1,3}(?:[,.\s][0-9]{3})+)/g;      // 3,600 · 3.600 · 3 600
+  while((m = reGroup.exec(raw))) push(intOf(m[1]));
+  // 앞에 숫자·구분자가 붙어 있으면 제외한다. 안 그러면 "1,850원"에서 뒤 세 자리 "850"까지 잡힌다.
+  const reWon = /(?:^|[^0-9,.])([0-9]{3,7})\s*(원|₩|웜|워)/g;  // 7900원 (OCR 오독 포함)
+  while((m = reWon.exec(raw))) push(intOf(m[1]));
   if(!priceCands.length){
-    const reComma = /\b([0-9]{1,3}(?:,[0-9]{3})+)\b/g;
-    while((m = reComma.exec(raw))){ const v = intOf(m[1]); if(v>=50 && v<=9999999) priceCands.push(v); }
+    for(const l of lines){                                  // 마지막 수단: 가격 라벨이 붙은 줄
+      if(!/판매가|정가|가격|소비자가/.test(l)) continue;
+      const d = l.replace(/[^0-9]/g,'');
+      if(d) push(intOf(d));
+    }
   }
-  if(priceCands.length === 1){
-    out.price = priceCands[0];
-  }else if(priceCands.length > 1){
-    // 판매가 = 보통 가장 작은 값(할인가), 정가 = 가장 큰 값
-    const sorted = [...priceCands].sort((a,b)=>a-b);
-    out.price = sorted[0];
-    if(sorted[sorted.length-1] > sorted[0]) out.listPrice = sorted[sorted.length-1];
+  const uniq = [...new Set(priceCands)].sort((a,b)=>a-b);
+  if(uniq.length === 1){
+    out.price = uniq[0];
+  }else if(uniq.length > 1){
+    out.price = uniq[0];                 // 판매가는 보통 가장 낮은 값(할인가)
+    out.listPrice = uniq[uniq.length-1]; // 정가는 가장 높은 값
   }
 
   // 상품코드: 8~13자리 연속 숫자 (가격으로 뽑힌 값 제외)
@@ -659,14 +784,23 @@ function parseOcr(text){
   return out;
 }
 
-async function runOCR(dataUrl, onLog){
-  const worker = await getWorker(onLog);
-  const img = await toOcrImage(dataUrl);
-  const { data } = await worker.recognize(img);
-  const parsed = parseOcr(data.text || '');
-  if(!parsed.name && !parsed.price) throw new Error('사진에서 글자를 찾지 못했습니다. 더 가까이·밝게 다시 찍어 주세요.');
-  parsed.memo = parsed.memo || '';
-  return [parsed];
+async function runOCR(dataUrl){
+  const w = await poolTake();
+  try{
+    let best = null;
+    // 배율에 따라 한글이 통째로 무너지는 일이 있어, 잘 안 읽히면 다른 배율로 한 번 더 시도한다
+    for(const mult of [1, 0.75]){
+      const { data } = await w.recognize(await toOcrImage(dataUrl, mult));
+      const parsed = parseOcr(data.text || '');
+      parsed.confidence = data.confidence || 0;
+      if(!best || parsed.confidence > best.confidence) best = parsed;
+      if(/[가-힣]{2,}/.test(parsed.name) && parsed.confidence >= 70) break;
+    }
+    if(!best || (!best.name && !best.price))
+      throw new Error('글자를 찾지 못했습니다. 가격표가 화면을 꽉 채우도록 다시 찍어 주세요.');
+    if(best.name && best.name === best.box) best.name = '';   // 박스입수 줄을 상품명으로 잘못 고른 경우
+    return [best];
+  } finally { poolGive(w); }
 }
 
 /* =========================================================================
@@ -674,48 +808,86 @@ async function runOCR(dataUrl, onLog){
    ========================================================================= */
 async function handleFiles(files){
   const imgs = [...files].filter(f => f && f.type && f.type.startsWith('image/'));
-  if(!imgs.length){ return; }
+  if(!imgs.length) return;
+  if(running){ alert('먼저 진행 중인 인식이 끝나거나 중지된 뒤에 올려 주세요.'); return; }
+
+  running = true; cancelRun = false;
+  const total = imgs.length;
+  let done = 0, ok = 0, fail = 0;
+  const auto = $('#autoAdd').checked;
 
   $('#progress').classList.remove('hidden');
   $('#log').classList.remove('hidden');
+  $('#btnCancel').classList.remove('hidden');
   logClear();
+  log(`사진 ${total}장 인식을 시작합니다.`);
 
-  let ok = 0, fail = 0;
-  for(let i=0;i<imgs.length;i++){
-    setProgress(`${imgs.length}장 중 ${i+1}장째 인식 중…`);
-    const f = imgs[i];
-    try{
-      const dataUrl = await readFile(f);
-      const thumb = await toThumb(dataUrl);
-      const results = state.engine === 'ai'
-        ? await runAI(dataUrl)
-        : await runOCR(dataUrl, t=>{ setProgress(`${imgs.length}장 중 ${i+1}장째 · ${t}`); });
+  const tick = extra => setProgress(`${done}/${total}장 완료` + (extra ? ' · ' + extra : ''));
+  tick();
 
-      if(!results.length){ log(`⚠ ${f.name}: 읽어낼 정보가 없습니다.`); fail++; continue; }
-      results.forEach(r=>{
-        pending.push({
-          pid: uid(), photo: thumb,
-          store: (r.store && STORES.includes(r.store)) ? r.store : state.store,
-          name: r.name||'', cat: r.cat || guessCat(r.name), price: r.price||0,
-          listPrice: r.listPrice||0, box: r.box||'', loc: r.loc||'',
-          code: r.code||'', vat: r.vat||'N', memo: r.memo||'',
-          packQty:1, bundleQty:1, sell:0, link:'', noOnline:''
-        });
-      });
-      log(`✔ ${f.name}: ${results.length}건 인식 — ${results.map(r=>r.name||'(이름없음)').join(', ')}`);
-      ok++;
-    }catch(err){
-      log(`✖ ${f.name}: ${err.message}`);
-      fail++;
+  const started = Date.now();
+  try{
+    if(state.engine === 'ocr'){
+      const n = await poolInit(total, t=>tick(t));
+      log(`인식 엔진 준비 완료 (동시 처리 ${n}장).`);
     }
-  }
 
-  $('#progress').classList.add('hidden');
-  setProgress('');
-  log(`— 완료: 성공 ${ok}장 / 실패 ${fail}장 —`);
-  renderPending();
-  if(pending.length) $('#pendCard').scrollIntoView({behavior:'smooth', block:'start'});
+    // 동시 실행 수: OCR은 워커 풀 크기, AI는 요청 3개까지
+    const lanes = state.engine === 'ocr' ? Math.max(1, pool.size) : 3;
+    let cursor = 0;
+
+    const lane = async () => {
+      while(true){
+        if(cancelRun) return;
+        const i = cursor++;
+        if(i >= total) return;
+        const f = imgs[i];
+        try{
+          const dataUrl = await readFile(f);
+          const thumb = await toThumb(dataUrl);
+          const results = state.engine === 'ai' ? await runAI(dataUrl) : await runOCR(dataUrl);
+          if(!results.length) throw new Error('읽어낼 정보가 없습니다.');
+          results.forEach(r=>{
+            const item = {
+              pid: uid(), photo: thumb,
+              store: (r.store && STORES.includes(r.store)) ? r.store : state.store,
+              name: r.name||'', cat: r.cat || guessCat(r.name), price: r.price||0,
+              listPrice: r.listPrice||0, box: r.box||'', loc: r.loc||'',
+              code: r.code||'', vat: r.vat||'N', memo: r.memo||'',
+              packQty:1, bundleQty:1, sell:0, link:'', noOnline:''
+            };
+            if(auto) commitPending(item); else pending.push(item);
+          });
+          log(`✔ ${f.name} — ${results.map(r=>r.name||'(이름 못읽음)').join(', ')}`);
+          ok++;
+        }catch(err){
+          log(`✖ ${f.name} — ${err.message}`);
+          fail++;
+        }finally{
+          done++; tick();
+        }
+      }
+    };
+
+    await Promise.all(Array.from({length: Math.min(lanes, total)}, lane));
+  }catch(err){
+    log('✖ ' + err.message);
+  }finally{
+    running = false;
+    const secs = ((Date.now()-started)/1000).toFixed(0);
+    $('#progress').classList.add('hidden');
+    $('#btnCancel').classList.add('hidden');
+    setProgress('');
+    log(cancelRun
+      ? `— 중지함: ${done}/${total}장 처리 (성공 ${ok} / 실패 ${fail}) —`
+      : `— 완료: ${total}장 중 성공 ${ok} / 실패 ${fail} · ${secs}초 —`);
+    if(auto){ render(); save(); }
+    renderPending();
+    if(pending.length) $('#pendCard').scrollIntoView({behavior:'smooth', block:'start'});
+  }
 }
+
+$('#btnCancel').addEventListener('click', ()=>{ cancelRun = true; log('중지 요청 — 진행 중인 사진까지만 마칩니다…'); });
 
 function setProgress(t){ $('#progressText').textContent = t; }
 function log(t){ const el = $('#log'); el.textContent += (el.textContent?'\n':'') + t; el.scrollTop = el.scrollHeight; }
@@ -920,18 +1092,50 @@ $('#form').addEventListener('submit', e=>{
 /* =========================================================================
    내보내기 / 백업
    ========================================================================= */
-function download(filename, text, mime='text/csv;charset=utf-8'){
-  const blob = new Blob(['﻿', text], {type:mime});
-  const url = URL.createObjectURL(blob);
+// 파일 저장.
+// 보통 브라우저에서는 링크로 바로 받고, claude.ai 아티팩트로 열었을 때는
+// 그쪽 저장 창을 통해 받는다(아티팩트 안에서는 일반 링크 내려받기가 막혀 있다).
+let saveApi;
+async function getSaveApi(){
+  if(saveApi !== undefined) return saveApi;
+  saveApi = null;
+  try{
+    if(typeof window.claude?.use === 'function') saveApi = await window.claude.use('downloads');
+  }catch(e){ saveApi = null; }
+  return saveApi;
+}
+function linkDownload(filename, body, mime){
+  const url = URL.createObjectURL(new Blob(body, {type:mime}));
   const a = document.createElement('a');
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
 }
+async function download(filename, text, mime='text/csv;charset=utf-8'){
+  const isCsv = /\.csv$/i.test(filename);
+  const body = isCsv ? ['﻿', text] : [text];   // 엑셀이 한글을 깨지 않게 BOM
+  const api = await getSaveApi();
+  if(!api){ linkDownload(filename, body, mime); return; }
+  const data = isCsv ? '﻿' + text : text;
+  try{
+    await api.save({ filename, data });
+  }catch(err){
+    if(err?.code === 'declined') return;
+    if(err?.code === 'extension_not_enabled' && isCsv){
+      // 이 화면에서는 .csv 를 못 받게 돼 있어 .txt 로 준다 (엑셀에서 그대로 열린다)
+      try{
+        await api.save({ filename: filename.replace(/\.csv$/i, '.csv.txt'), data });
+        alert('이 화면에서는 CSV를 바로 받을 수 없어 .txt 로 저장했습니다.\n파일 이름 끝의 ".txt"를 지우면 엑셀에서 그대로 열립니다.');
+      }catch(e2){ if(e2?.code !== 'declined') linkDownload(filename, body, mime); }
+      return;
+    }
+    linkDownload(filename, body, mime);
+  }
+}
 const csvCell = v => { const s = String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
 const toCsv = rows => rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
 
-$('#btnCsvPrice').addEventListener('click', ()=>{
+$('#btnCsvPrice').addEventListener('click', async ()=>{
   const head = ['No','매장명','상품명','분류(추정)','판매가(원)','정가/온라인정찰가(원)','정가 대비 할인율',
                 '박스입수','창고 위치코드','온라인판매금지','상품코드','상품링크','비고','요약포함','검색키','조사일'];
   const body = visibleRows().map((r,i)=>[
@@ -939,10 +1143,10 @@ $('#btnCsvPrice').addEventListener('click', ()=>{
     (r.listPrice>0 && r.price>0) ? (1 - r.price/r.listPrice).toFixed(4) : '',
     r.box, r.loc, r.noOnline, r.code, r.link, r.memo, 'Y', `${r.store}|${r.price||''}`, r.date||''
   ]);
-  download('가격조사.csv', toCsv([head, ...body]));
+  await download('가격조사.csv', toCsv([head, ...body]));
 });
 
-$('#btnCsvMargin').addEventListener('click', ()=>{
+$('#btnCsvMargin').addEventListener('click', async ()=>{
   const head = ['No','매장명','상품명','카테고리','매입가(원)','포장수량(개)','부가세 별도?','판매 묶음수량(개)',
                 '쿠팡 판매가(원)','실매입 단가(원)','건당 매입원가(원)','판매수수료율','판매수수료(원)','결제수수료(원)',
                 '수수료 부가세(원)','물류비(원)','총원가(원)','건당 마진(원)','마진율','판정','손익분기 판매가(원)','목표마진 판매가(원)'];
@@ -956,13 +1160,13 @@ $('#btnCsvMargin').addEventListener('click', ()=>{
       r.sell?Math.round(c.total):'', r.sell?Math.round(c.margin):'', r.sell?c.mRate.toFixed(4):'',
       c.verdict, Math.round(c.breakEven), Math.round(c.targetPrice)];
   });
-  download('마진계산.csv', toCsv([head, ...body]));
+  await download('마진계산.csv', toCsv([head, ...body]));
 });
 
-$('#btnBackup').addEventListener('click', ()=>{
+$('#btnBackup').addEventListener('click', async ()=>{
   const payload = { version:2, savedAt:new Date().toISOString(), state, cfg:{...cfg, apiKey:''} };
-  download('시세조사_백업_'+new Date().toISOString().slice(0,10)+'.json',
-           JSON.stringify(payload, null, 2), 'application/json');
+  await download('시세조사_백업_'+new Date().toISOString().slice(0,10)+'.json',
+                 JSON.stringify(payload, null, 2), 'application/json');
 });
 $('#restoreFile').addEventListener('change', async e=>{
   const f = e.target.files[0]; if(!f) return;
@@ -1044,7 +1248,7 @@ function init(){
   $('#f_cat').innerHTML    = CATS.map(c=>`<option ${c==='기타(미분류)'?'selected':''}>${esc(c)}</option>`).join('');
 
   applyCfgToInputs();
-  setEngine(state.engine || 'ai');
+  setEngine(state.engine || 'ocr');
   resetForm();
   render();
   setSaveState(state.rows.length ? `저장됨 · ${state.rows.length}건` : '준비 완료');
