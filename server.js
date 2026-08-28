@@ -4,9 +4,21 @@ const path = require('path');
 const express = require('express');
 const mariadb = require('mariadb');
 
-// 클라우드(예: Aiven MySQL) 배포 시에는 DATABASE_URL 한 줄로 접속 정보를 받고,
+// 클라우드 배포 시에는 접속 URL 한 줄로 접속 정보를 받고,
 // 로컬 실행 시에는 기존처럼 DB_HOST/DB_USER 등 개별 값을 사용합니다.
-const required = process.env.DATABASE_URL
+//
+// Railway 에서 MySQL 를 붙이면 MYSQL_URL / MYSQL_PRIVATE_URL 이 자동으로 생깁니다.
+// 그 값을 그대로 알아보게 해서, 사람이 직접 넣을 환경변수는 APP_ACCESS_KEY 하나로 줄입니다.
+// 같은 프로젝트 안에서는 private 주소가 더 빠르고 요금도 들지 않으므로 먼저 씁니다.
+function databaseUrl() {
+  return process.env.DATABASE_URL
+    || process.env.MYSQL_PRIVATE_URL
+    || process.env.DATABASE_PRIVATE_URL
+    || process.env.MYSQL_URL
+    || '';
+}
+
+const required = databaseUrl()
   ? ['APP_ACCESS_KEY']
   : ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'APP_ACCESS_KEY'];
 const missing = required.filter((key) => !process.env[key]);
@@ -26,8 +38,9 @@ function buildDbConfig() {
   const base = { connectionLimit: 6, dateStrings: true, acquireTimeout: 15000 };
   const sslEnabled = String(process.env.DB_SSL || '').toLowerCase() === 'true';
 
-  if (process.env.DATABASE_URL) {
-    const url = new URL(process.env.DATABASE_URL);
+  const dbUrl = databaseUrl();
+  if (dbUrl) {
+    const url = new URL(dbUrl);
     const useSsl = sslEnabled
       || url.protocol === 'mysqls:'
       || (url.searchParams.get('ssl-mode') || '').toUpperCase() === 'REQUIRED'
