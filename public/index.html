@@ -340,6 +340,9 @@ h3:first-child{margin-top:2px}
 .stat span{font-size:10.5px;color:var(--tx3)}
   /* ── 서버 동기화 표시줄 ── */
   .syncline{display:flex;align-items:center;gap:7px;padding:6px 12px 8px;font-size:11.5px;color:#7c8798}
+  /* hidden 속성이 .syncline 의 display:flex 에 밀리지 않도록 (같은 명시도라 뒤에 와야 이긴다) */
+  .syncline[hidden]{display:none}
+  .syncline .off{color:#f5c344;font-weight:700}
   .syncline .dot{width:7px;height:7px;border-radius:50%;background:#5a6472;flex:none}
   .syncline .dot.ok{background:#3fcf8e}
   .syncline .dot.busy{background:#f5c344;animation:pulse 1s infinite}
@@ -1861,12 +1864,18 @@ const Sync = (() => {
   }
 
   function ui(kind, text) {
-    const line = $('#syncLine'), dot = $('#syncDot'), t = $('#syncText');
+    const line = $('#syncLine'), dot = $('#syncDot'), t = $('#syncText'), btn = $('#syncNow');
     if (!line) return;
-    line.hidden = !enabled();
-    if (!enabled()) return;
+    line.hidden = false;                       // 상태는 항상 보여 준다
+    if (!enabled()) {
+      dot.className = 'dot';
+      t.innerHTML = '<span class="off">동기화 꺼짐</span> · 이 기기에만 저장됩니다';
+      if (btn) btn.textContent = '켜는 법';
+      return;
+    }
     dot.className = 'dot ' + (kind || '');
     t.textContent = text;
+    if (btn) btn.textContent = '지금 맞추기';
   }
 
   function soon() { clearTimeout(timer); timer = setTimeout(() => run(false), 1200); }
@@ -1894,11 +1903,10 @@ const Sync = (() => {
     write(K_ON, false);
     if (es) { try { es.close(); } catch (_) {} es = null; }
     ui('', '');
-    const line = $('#syncLine'); if (line) line.hidden = true;
   }
 
   function start() {
-    if (!enabled()) { const line = $('#syncLine'); if (line) line.hidden = true; return; }
+    if (!enabled()) { ui('', ''); return; }
     run(false); listen();
     setInterval(() => run(false), 60000);
     window.addEventListener('online', () => run(false));
@@ -1910,7 +1918,15 @@ const Sync = (() => {
 })();
 
 document.addEventListener('click', e => {
-  if (e.target && e.target.id === 'syncNow') Sync.run(true);
+  if (!e.target || e.target.id !== 'syncNow') return;
+  if (Sync.enabled()) { Sync.run(true); return; }
+  // 꺼져 있으면 켜는 자리로 데려간다
+  $$('nav button').forEach(b => b.classList.remove('on'));
+  const tab = document.querySelector('nav button[data-tab="out"]');
+  if (tab) tab.click();
+  const box = $('#cloudKey');
+  if (box) { box.scrollIntoView({ behavior: 'smooth', block: 'center' }); box.focus(); }
+  toast('접속 비밀번호를 넣고 [동기화 켜기]를 누르세요');
 });
 
 </script>
