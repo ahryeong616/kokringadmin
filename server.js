@@ -870,12 +870,44 @@ app.use((err, req, res, next) => {
   res.status(status).json({ message });
 });
 
-async function start() {
-  await ensureSchema();
-  {
-    const conn = await pool.getConnection();
-    try { await ensureSurveySchema(conn); } finally { conn.release(); }
+// Railway 같은 곳은 앱과 데이터베이스를 동시에 켭니다.
+// 앱이 먼저 떠서 DB 가 아직 준비되지 않았을 때 그냥 죽어버리면 배포가 'Crashed' 로 끝나므로,
+// 잠깐 기다렸다가 다시 시도합니다. (DB 가 정말 없으면 그때는 로그를 남기고 종료)
+// 연결 시도 자체에 15초(acquireTimeout)가 걸리므로, 8회면 최대 2분 반쯤 기다립니다.
+// 데이터베이스가 늦게 뜨는 경우는 넉넉히 덮으면서, 설정이 틀렸을 때는 빨리 실패해
+// 로그에 원인이 보이게 하는 절충입니다.
+const DB_WAIT_TRIES = 8;
+const DB_WAIT_DELAY = 4000;
+
+async function connectWithRetry() {
+  for (let attempt = 1; attempt <= DB_WAIT_TRIES; attempt += 1) {
+    try {
+      await ensureSchema();
+      const conn = await pool.getConnection();
+      try { await ensureSurveySchema(conn); } finally { conn.release(); }
+      return;
+    } catch (err) {
+      const last = attempt === DB_WAIT_TRIES;
+      const retryable = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ER_GET_CONNECTION_TIMEOUT']
+        .includes(err.code);
+      if (last || !retryable) throw err;
+      console.log(
+        `데이터베이스 준비 대기 중… (${attempt}/${DB_WAIT_TRIES}) ${err.code || err.message}`,
+      );
+      await new Promise((r) => setTimeout(r, DB_WAIT_DELAY));
+    }
   }
+}
+
+async function start() {
+  await connectWithRetry();
   app.listen(PORT, '0.0.0.0', () => console.log(`Kokring server listening on ${PORT}`));
 }
-start().catch((err) => { console.error('Server startup failed:', err); process.exit(1); });
+start().catch((err) => {
+  console.error('Server startup failed:', err.code || '', err.message);
+  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+    console.error('DATABASE_URL 이 비었거나 데이터베이스에 닿지 못했습니다. Railway 라면 앱 서비스 Variables 에');
+    console.error('DATABASE_URL = ${{MySQL.MYSQL_PRIVATE_URL}} 참조가 들어가 있는지 확인하세요.');
+  }
+  process.exit(1);
+});
