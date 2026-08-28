@@ -4,9 +4,21 @@ const path = require('path');
 const express = require('express');
 const mariadb = require('mariadb');
 
-// 클라우드(예: Aiven MySQL) 배포 시에는 DATABASE_URL 한 줄로 접속 정보를 받고,
+// 클라우드 배포 시에는 접속 URL 한 줄로 접속 정보를 받고,
 // 로컬 실행 시에는 기존처럼 DB_HOST/DB_USER 등 개별 값을 사용합니다.
-const required = process.env.DATABASE_URL
+//
+// Railway 에서 MySQL 를 붙이면 MYSQL_URL / MYSQL_PRIVATE_URL 이 자동으로 생깁니다.
+// 그 값을 그대로 알아보게 해서, 사람이 직접 넣을 환경변수는 APP_ACCESS_KEY 하나로 줄입니다.
+// 같은 프로젝트 안에서는 private 주소가 더 빠르고 요금도 들지 않으므로 먼저 씁니다.
+function databaseUrl() {
+  return process.env.DATABASE_URL
+    || process.env.MYSQL_PRIVATE_URL
+    || process.env.DATABASE_PRIVATE_URL
+    || process.env.MYSQL_URL
+    || '';
+}
+
+const required = databaseUrl()
   ? ['APP_ACCESS_KEY']
   : ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'APP_ACCESS_KEY'];
 const missing = required.filter((key) => !process.env[key]);
@@ -26,8 +38,9 @@ function buildDbConfig() {
   const base = { connectionLimit: 6, dateStrings: true, acquireTimeout: 15000 };
   const sslEnabled = String(process.env.DB_SSL || '').toLowerCase() === 'true';
 
-  if (process.env.DATABASE_URL) {
-    const url = new URL(process.env.DATABASE_URL);
+  const dbUrl = databaseUrl();
+  if (dbUrl) {
+    const url = new URL(dbUrl);
     const useSsl = sslEnabled
       || url.protocol === 'mysqls:'
       || (url.searchParams.get('ssl-mode') || '').toUpperCase() === 'REQUIRED'
@@ -40,6 +53,10 @@ function buildDbConfig() {
       password: decodeURIComponent(url.password),
       database: url.pathname.replace(/^\//, '') || undefined,
       ...(useSsl ? { ssl: sslOption() } : {}),
+      // MySQL 8 은 caching_sha2_password 로 인증합니다. 암호화하지 않은 연결에서
+      // 첫 접속을 하려면 서버 공개키를 받아와야 하는데, 이 옵션이 없으면 거기서 실패합니다.
+      // (Railway 처럼 사설망 안에서만 붙는 경우를 전제로 켭니다. 공개망이면 SSL 을 쓰세요.)
+      allowPublicKeyRetrieval: true,
     };
   }
 
@@ -62,6 +79,9 @@ const eventClients = new Set();
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(__dirname, { index: 'index.html' }));
+
+// 시세조사 앱은 /survey 로도 열린다 (현장에서 주소를 짧게 치려고)
+app.get('/survey', (req, res) => res.sendFile(path.join(__dirname, 'survey.html')));
 
 function number(value, fallback = 0) {
   const parsed = Number(value);
@@ -99,6 +119,22 @@ function accessKey(req, res, next) {
     return res.status(401).json({ message: '재고관리 접속 비밀번호가 맞지 않습니다.' });
   }
   next();
+}
+
+// ── 현장 시세조사 동기화 ───────────────────────────────────────────────
+// 기기(폰·PC)마다 IndexedDB에 먼저 저장하고, 여기로 밀어 올려 서로 맞춘다.
+// 기록 한 건을 통째로 JSON(payload)으로 두는 이유: 조사 항목이 자주 바뀌는데
+// 그때마다 컬럼을 늘리면 배포가 번거롭기 때문. 충돌은 updated_at 이 큰 쪽이 이긴다.
+async function ensureSurveySchema(conn) {
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS survey_records (
+      uid VARCHAR(64) NOT NULL PRIMARY KEY,
+      updated_at BIGINT NOT NULL,
+      deleted TINYINT NOT NULL DEFAULT 0,
+      payload LONGTEXT NULL,
+      KEY idx_survey_updated (updated_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 }
 
 async function ensureSchema() {
@@ -767,6 +803,66 @@ app.put('/api/import', async (req, res, next) => {
   } finally { if (conn) conn.release(); }
 });
 
+/* ── 시세조사 동기화 API ─────────────────────────────────────────────── */
+const SURVEY_MAX_PAYLOAD = 256 * 1024;   // 기록 한 건 상한
+const SURVEY_MAX_BATCH = 500;
+
+// 마지막으로 받아간 시각 이후에 바뀐 것만 내려준다(지운 것 포함).
+app.get('/api/survey/changes', async (req, res, next) => {
+  let conn;
+  try {
+    const since = Number.isFinite(Number(req.query.since)) ? Math.max(0, Number(req.query.since)) : 0;
+    conn = await pool.getConnection();
+    const rows = await conn.query(
+      'SELECT uid, updated_at, deleted, payload FROM survey_records WHERE updated_at > ? ORDER BY updated_at ASC LIMIT 5000',
+      [since],
+    );
+    res.set('Cache-Control', 'no-store').json({
+      now: Date.now(),
+      records: rows.map((r) => ({
+        uid: r.uid,
+        updatedAt: Number(r.updated_at),
+        deleted: Number(r.deleted) === 1,
+        rec: r.payload ? JSON.parse(r.payload) : null,
+      })),
+    });
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
+// 기기에서 바뀐 것을 올린다. 같은 uid 는 updated_at 이 큰 쪽만 남는다.
+app.post('/api/survey/push', async (req, res, next) => {
+  let conn;
+  try {
+    const list = Array.isArray(req.body?.records) ? req.body.records : [];
+    if (list.length > SURVEY_MAX_BATCH) {
+      const err = new Error(`한 번에 ${SURVEY_MAX_BATCH}건까지 보낼 수 있습니다.`);
+      err.status = 400;
+      throw err;
+    }
+    conn = await pool.getConnection();
+    let applied = 0;
+    for (const item of list) {
+      const uid = text(item?.uid, 64);
+      if (!uid) continue;
+      const updatedAt = integer(item?.updatedAt, 0) || Date.now();
+      const deleted = item?.deleted ? 1 : 0;
+      const payload = deleted ? null : JSON.stringify(item?.rec ?? null);
+      if (payload && payload.length > SURVEY_MAX_PAYLOAD) continue;   // 너무 큰 건은 건너뛴다
+      await conn.query(
+        `INSERT INTO survey_records (uid, updated_at, deleted, payload) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           payload    = IF(VALUES(updated_at) >= updated_at, VALUES(payload), payload),
+           deleted    = IF(VALUES(updated_at) >= updated_at, VALUES(deleted), deleted),
+           updated_at = IF(VALUES(updated_at) >= updated_at, VALUES(updated_at), updated_at)`,
+        [uid, updatedAt, deleted, payload],
+      );
+      applied += 1;
+    }
+    if (applied) broadcast();
+    res.json({ ok: true, applied, now: Date.now() });
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   const status = err.status || (err.code === 'ER_DUP_ENTRY' ? 409 : 500);
@@ -774,8 +870,44 @@ app.use((err, req, res, next) => {
   res.status(status).json({ message });
 });
 
+// Railway 같은 곳은 앱과 데이터베이스를 동시에 켭니다.
+// 앱이 먼저 떠서 DB 가 아직 준비되지 않았을 때 그냥 죽어버리면 배포가 'Crashed' 로 끝나므로,
+// 잠깐 기다렸다가 다시 시도합니다. (DB 가 정말 없으면 그때는 로그를 남기고 종료)
+// 연결 시도 자체에 15초(acquireTimeout)가 걸리므로, 8회면 최대 2분 반쯤 기다립니다.
+// 데이터베이스가 늦게 뜨는 경우는 넉넉히 덮으면서, 설정이 틀렸을 때는 빨리 실패해
+// 로그에 원인이 보이게 하는 절충입니다.
+const DB_WAIT_TRIES = 8;
+const DB_WAIT_DELAY = 4000;
+
+async function connectWithRetry() {
+  for (let attempt = 1; attempt <= DB_WAIT_TRIES; attempt += 1) {
+    try {
+      await ensureSchema();
+      const conn = await pool.getConnection();
+      try { await ensureSurveySchema(conn); } finally { conn.release(); }
+      return;
+    } catch (err) {
+      const last = attempt === DB_WAIT_TRIES;
+      const retryable = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ER_GET_CONNECTION_TIMEOUT']
+        .includes(err.code);
+      if (last || !retryable) throw err;
+      console.log(
+        `데이터베이스 준비 대기 중… (${attempt}/${DB_WAIT_TRIES}) ${err.code || err.message}`,
+      );
+      await new Promise((r) => setTimeout(r, DB_WAIT_DELAY));
+    }
+  }
+}
+
 async function start() {
-  await ensureSchema();
+  await connectWithRetry();
   app.listen(PORT, '0.0.0.0', () => console.log(`Kokring server listening on ${PORT}`));
 }
-start().catch((err) => { console.error('Server startup failed:', err); process.exit(1); });
+start().catch((err) => {
+  console.error('Server startup failed:', err.code || '', err.message);
+  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+    console.error('DATABASE_URL 이 비었거나 데이터베이스에 닿지 못했습니다. Railway 라면 앱 서비스 Variables 에');
+    console.error('DATABASE_URL = ${{MySQL.MYSQL_PRIVATE_URL}} 참조가 들어가 있는지 확인하세요.');
+  }
+  process.exit(1);
+});
