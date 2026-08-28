@@ -63,6 +63,9 @@ const eventClients = new Set();
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(__dirname, { index: 'index.html' }));
 
+// 시세조사 앱은 /survey 로도 열린다 (현장에서 주소를 짧게 치려고)
+app.get('/survey', (req, res) => res.sendFile(path.join(__dirname, 'survey.html')));
+
 function number(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -99,6 +102,22 @@ function accessKey(req, res, next) {
     return res.status(401).json({ message: '재고관리 접속 비밀번호가 맞지 않습니다.' });
   }
   next();
+}
+
+// ── 현장 시세조사 동기화 ───────────────────────────────────────────────
+// 기기(폰·PC)마다 IndexedDB에 먼저 저장하고, 여기로 밀어 올려 서로 맞춘다.
+// 기록 한 건을 통째로 JSON(payload)으로 두는 이유: 조사 항목이 자주 바뀌는데
+// 그때마다 컬럼을 늘리면 배포가 번거롭기 때문. 충돌은 updated_at 이 큰 쪽이 이긴다.
+async function ensureSurveySchema(conn) {
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS survey_records (
+      uid VARCHAR(64) NOT NULL PRIMARY KEY,
+      updated_at BIGINT NOT NULL,
+      deleted TINYINT NOT NULL DEFAULT 0,
+      payload LONGTEXT NULL,
+      KEY idx_survey_updated (updated_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 }
 
 async function ensureSchema() {
@@ -767,6 +786,66 @@ app.put('/api/import', async (req, res, next) => {
   } finally { if (conn) conn.release(); }
 });
 
+/* ── 시세조사 동기화 API ─────────────────────────────────────────────── */
+const SURVEY_MAX_PAYLOAD = 256 * 1024;   // 기록 한 건 상한
+const SURVEY_MAX_BATCH = 500;
+
+// 마지막으로 받아간 시각 이후에 바뀐 것만 내려준다(지운 것 포함).
+app.get('/api/survey/changes', async (req, res, next) => {
+  let conn;
+  try {
+    const since = Number.isFinite(Number(req.query.since)) ? Math.max(0, Number(req.query.since)) : 0;
+    conn = await pool.getConnection();
+    const rows = await conn.query(
+      'SELECT uid, updated_at, deleted, payload FROM survey_records WHERE updated_at > ? ORDER BY updated_at ASC LIMIT 5000',
+      [since],
+    );
+    res.set('Cache-Control', 'no-store').json({
+      now: Date.now(),
+      records: rows.map((r) => ({
+        uid: r.uid,
+        updatedAt: Number(r.updated_at),
+        deleted: Number(r.deleted) === 1,
+        rec: r.payload ? JSON.parse(r.payload) : null,
+      })),
+    });
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
+// 기기에서 바뀐 것을 올린다. 같은 uid 는 updated_at 이 큰 쪽만 남는다.
+app.post('/api/survey/push', async (req, res, next) => {
+  let conn;
+  try {
+    const list = Array.isArray(req.body?.records) ? req.body.records : [];
+    if (list.length > SURVEY_MAX_BATCH) {
+      const err = new Error(`한 번에 ${SURVEY_MAX_BATCH}건까지 보낼 수 있습니다.`);
+      err.status = 400;
+      throw err;
+    }
+    conn = await pool.getConnection();
+    let applied = 0;
+    for (const item of list) {
+      const uid = text(item?.uid, 64);
+      if (!uid) continue;
+      const updatedAt = integer(item?.updatedAt, 0) || Date.now();
+      const deleted = item?.deleted ? 1 : 0;
+      const payload = deleted ? null : JSON.stringify(item?.rec ?? null);
+      if (payload && payload.length > SURVEY_MAX_PAYLOAD) continue;   // 너무 큰 건은 건너뛴다
+      await conn.query(
+        `INSERT INTO survey_records (uid, updated_at, deleted, payload) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           payload    = IF(VALUES(updated_at) >= updated_at, VALUES(payload), payload),
+           deleted    = IF(VALUES(updated_at) >= updated_at, VALUES(deleted), deleted),
+           updated_at = IF(VALUES(updated_at) >= updated_at, VALUES(updated_at), updated_at)`,
+        [uid, updatedAt, deleted, payload],
+      );
+      applied += 1;
+    }
+    if (applied) broadcast();
+    res.json({ ok: true, applied, now: Date.now() });
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   const status = err.status || (err.code === 'ER_DUP_ENTRY' ? 409 : 500);
@@ -776,6 +855,10 @@ app.use((err, req, res, next) => {
 
 async function start() {
   await ensureSchema();
+  {
+    const conn = await pool.getConnection();
+    try { await ensureSurveySchema(conn); } finally { conn.release(); }
+  }
   app.listen(PORT, '0.0.0.0', () => console.log(`Kokring server listening on ${PORT}`));
 }
 start().catch((err) => { console.error('Server startup failed:', err); process.exit(1); });
