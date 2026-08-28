@@ -53,6 +53,10 @@ function buildDbConfig() {
       password: decodeURIComponent(url.password),
       database: url.pathname.replace(/^\//, '') || undefined,
       ...(useSsl ? { ssl: sslOption() } : {}),
+      // MySQL 8 은 caching_sha2_password 로 인증합니다. 암호화하지 않은 연결에서
+      // 첫 접속을 하려면 서버 공개키를 받아와야 하는데, 이 옵션이 없으면 거기서 실패합니다.
+      // (Railway 처럼 사설망 안에서만 붙는 경우를 전제로 켭니다. 공개망이면 SSL 을 쓰세요.)
+      allowPublicKeyRetrieval: true,
     };
   }
 
