@@ -6,9 +6,3 @@ kokring-backup/
 *.sql
 *.sql.zip
 db-check.js
-
-# 오프라인 빌드용 원본(직접 내려받아 채우는 폴더)
-vendor/
-# 8MB 자립형 빌드 결과물
-현장_시세조사_오프라인.html
-preview.png
