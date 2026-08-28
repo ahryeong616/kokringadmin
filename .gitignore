@@ -1,0 +1,5 @@
+node_modules/
+# 접속 정보는 절대 저장소에 올리지 않는다. 배포처의 환경변수로만 넣는다.
+.env
+.env.*
+npm-debug.log*

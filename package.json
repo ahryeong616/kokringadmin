@@ -1,0 +1,13 @@
+{
+  "name": "kokring-survey",
+  "version": "1.0.0",
+  "private": true,
+  "description": "현장 시세조사 — 매장별 가격 조사·비교 (재고관리와 별개 앱)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "mariadb": "^3.5.2"
+  }
+}
