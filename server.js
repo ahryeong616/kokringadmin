@@ -131,7 +131,10 @@ app.post('/api/survey/push', async (req, res, next) => {
     for (const item of list) {
       const uid = String(item?.uid || '').slice(0, 64);
       if (!uid) continue;
-      const updatedAt = Number(item?.updatedAt) || Date.now();
+      // 시각은 반드시 서버 시계로 찍는다.
+      // 기기 시계를 믿으면, 시계가 느린 폰이 올린 기록의 updated_at 이 다른 기기의
+      // '마지막으로 받아간 시각'보다 작아져서 영영 전달되지 않는다.
+      const updatedAt = Date.now();
       const deleted = item?.deleted ? 1 : 0;
       const payload = deleted ? null : JSON.stringify(item?.rec ?? null);
       if (payload && payload.length > MAX_PAYLOAD) continue;   // 너무 큰 건은 건너뜁니다
