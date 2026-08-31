@@ -36,6 +36,8 @@
     font-size:16px;
     line-height:1.75;
     letter-spacing:-0.012em;
+    word-break:keep-all;
+    overflow-wrap:break-word;
     -webkit-font-smoothing:antialiased;
   }
   .wrap{max-width:760px;margin:0 auto;background:var(--surface)}
@@ -86,7 +88,7 @@
     background:linear-gradient(transparent 62%,#FFE1D5 62%);
   }
   .hero p.lede{
-    color:var(--ink-2);font-size:15.5px;max-width:36ch;margin:0 0 34px;
+    color:var(--ink-2);font-size:15.5px;max-width:31em;margin:0 0 34px;
   }
 
   .headline-card{
@@ -211,12 +213,13 @@
     background:linear-gradient(105deg,rgba(255,255,255,.75) 0 16%,transparent 34%);
   }
   .ba figcaption{
-    display:flex;justify-content:space-between;align-items:baseline;
-    margin-top:9px;
+    display:flex;align-items:baseline;gap:8px;
+    margin-top:10px;
     font-family:var(--disp);font-weight:600;font-size:12.5px;letter-spacing:0.16em;
     color:var(--ink-3);
   }
   .ba figcaption b{font-family:var(--kr);font-size:13.5px;letter-spacing:-0.02em;color:var(--ink-2);font-weight:700}
+  .ba figcaption b::before{content:"";display:inline-block;width:1px;height:10px;background:var(--hair-2);margin-right:8px;vertical-align:-1px}
 
   .crit{display:grid;gap:15px;margin:0;padding:0;list-style:none}
   .crit li{display:grid;grid-template-columns:18px 1fr;gap:12px;font-size:15.5px;line-height:1.7}
