@@ -1,301 +1,277 @@
 <title>이젠오토 리뷰 이벤트</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700;900&family=Saira+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Saira+Condensed:wght@500;600;700&display=swap">
 <style>
+  /* 단일 라이트 테마 — 커머스 상세페이지는 항상 흰 배경에서 읽히므로
+     뷰어 테마와 무관하게 같은 화면을 보여줍니다. 모든 색을 명시합니다. */
   :root{
-    --paper:#F3F4F6;
+    --page:#EEF0F3;
     --surface:#FFFFFF;
-    --panel:#13171C;
-    --panel-soft:#1C222A;
-    --ink:#13171C;
-    --ink-2:#3C444E;
-    --steel:#6B7480;
-    --hair:#DDE0E4;
-    --hair-strong:#C6CAD1;
-    --brand:#0B4FD1;
-    --brand-soft:#E8EEFB;
-    --on-panel:#F3F4F6;
-    --on-panel-dim:#8F99A6;
-    --hair-panel:#2C333C;
-    --brand-on-panel:#7BA4FF;
+    --tint-blue:#EFF4FE;
+    --tint-warm:#FFF4EE;
+    --tint-grey:#F6F7F9;
+
+    --ink:#1A2129;
+    --ink-2:#4E5865;
+    --ink-3:#7C8794;
+
+    --hair:#E4E8ED;
+    --hair-2:#CFD5DD;
+
+    --blue:#1156D6;
+    --blue-deep:#0B3FA0;
+    --orange:#F0592B;
+    --orange-deep:#C93F16;
 
     --kr:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
     --disp:"Saira Condensed","Noto Sans KR",sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --paper:#0E1114;
-      --surface:#161B21;
-      --panel:#080A0D;
-      --panel-soft:#12171D;
-      --ink:#E9EBEE;
-      --ink-2:#B8BEC7;
-      --steel:#8A939E;
-      --hair:#272D35;
-      --hair-strong:#39414B;
-      --brand:#6E9BFF;
-      --brand-soft:#182337;
-      --on-panel:#E9EBEE;
-      --on-panel-dim:#7F8894;
-      --hair-panel:#232A33;
-      --brand-on-panel:#8FB2FF;
-    }
-  }
-  :root[data-theme="dark"]{
-    --paper:#0E1114;
-    --surface:#161B21;
-    --panel:#080A0D;
-    --panel-soft:#12171D;
-    --ink:#E9EBEE;
-    --ink-2:#B8BEC7;
-    --steel:#8A939E;
-    --hair:#272D35;
-    --hair-strong:#39414B;
-    --brand:#6E9BFF;
-    --brand-soft:#182337;
-    --on-panel:#E9EBEE;
-    --on-panel-dim:#7F8894;
-    --hair-panel:#232A33;
-    --brand-on-panel:#8FB2FF;
   }
 
   *{box-sizing:border-box}
   body{
-    background:var(--paper);
+    background:var(--page);
     color:var(--ink);
     font-family:var(--kr);
     font-size:16px;
     line-height:1.75;
+    letter-spacing:-0.012em;
     -webkit-font-smoothing:antialiased;
-    letter-spacing:-0.01em;
   }
-  .wrap{max-width:760px;margin:0 auto;background:var(--surface);}
+  .wrap{max-width:760px;margin:0 auto;background:var(--surface)}
   @media (min-width:820px){
-    .wrap{box-shadow:0 1px 0 var(--hair),0 0 0 1px var(--hair);}
+    .wrap{box-shadow:0 0 0 1px var(--hair)}
   }
 
   .eyebrow{
-    font-family:var(--mono);
-    font-size:11px;
-    letter-spacing:0.18em;
+    font-family:var(--disp);
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:0.22em;
     text-transform:uppercase;
-    color:var(--steel);
+    color:var(--blue);
+    margin:0 0 10px;
   }
 
-  /* ---------- hero ---------- */
-  .hero{
-    background:var(--panel);
-    color:var(--on-panel);
-    padding:56px 32px 0;
-    position:relative;
-    overflow:hidden;
-  }
-  .brandbar{
-    display:flex;align-items:center;gap:14px;
-    padding-bottom:34px;
-  }
-  .brandbar .mark{
-    font-family:var(--disp);
-    font-weight:700;font-size:23px;letter-spacing:0.06em;
-    color:var(--on-panel);
-  }
-  .brandbar .rule{flex:1;height:1px;background:var(--hair-panel)}
-  .brandbar .tag{
-    font-family:var(--mono);font-size:11px;letter-spacing:0.2em;
-    color:var(--on-panel-dim);
-  }
-  .hero h1{
-    font-family:var(--kr);
-    font-weight:900;
-    font-size:clamp(30px,6.4vw,44px);
-    line-height:1.28;
-    letter-spacing:-0.035em;
-    margin:0 0 18px;
-    text-wrap:balance;
-  }
-  .hero h1 em{font-style:normal;color:var(--brand-on-panel);}
-  .hero p.lede{
-    color:var(--on-panel-dim);
-    font-size:15px;
-    max-width:40ch;
-    margin:0 0 40px;
-  }
-
-  .gauge{
-    border-top:1px solid var(--hair-panel);
-    padding-top:26px;
-    padding-bottom:34px;
-  }
-  .gauge .cap{
-    display:flex;justify-content:space-between;align-items:baseline;
-    font-family:var(--mono);font-size:11px;letter-spacing:0.14em;
-    color:var(--on-panel-dim);
-    margin-bottom:6px;
-  }
-  .readout{
-    display:flex;align-items:baseline;gap:8px;
-    font-family:var(--disp);
-    font-variant-numeric:tabular-nums;
-  }
-  .readout .num{
-    font-weight:700;
-    font-size:clamp(62px,15vw,104px);
-    line-height:0.92;
-    letter-spacing:-0.02em;
-  }
-  .readout .won{
-    font-family:var(--kr);font-weight:700;
-    font-size:clamp(20px,4vw,28px);
-    color:var(--on-panel-dim);
-  }
-  .ticks{
-    display:flex;gap:5px;margin-top:20px;
-  }
-  .ticks i{flex:1;height:8px;background:var(--hair-panel);border-radius:1px}
-  .ticks i.on{background:var(--brand-on-panel)}
-  .ticks i:nth-child(n+13){opacity:.45}
-
-  /* ---------- shared section ---------- */
-  section{padding:52px 32px}
+  section{padding:56px 34px}
   section + section{border-top:1px solid var(--hair)}
   h2{
-    font-size:22px;font-weight:900;letter-spacing:-0.03em;
-    margin:10px 0 6px;line-height:1.4;
+    font-size:24px;font-weight:900;letter-spacing:-0.035em;
+    margin:0 0 8px;line-height:1.42;text-wrap:balance;
   }
-  .sec-note{color:var(--steel);font-size:14px;margin:0 0 28px}
+  .sec-note{color:var(--ink-3);font-size:14.5px;margin:0 0 30px;line-height:1.7}
 
-  /* ---------- reward rows ---------- */
-  .rewards{border-top:1px solid var(--ink);}
+  /* ---------- hero ---------- */
+  .hero{padding:44px 34px 54px}
+  .brandbar{
+    display:flex;align-items:center;gap:13px;padding-bottom:36px;
+  }
+  .brandbar .mark{
+    font-family:var(--disp);font-weight:700;font-size:22px;
+    letter-spacing:0.05em;color:var(--blue);
+  }
+  .brandbar .rule{flex:1;height:1px;background:var(--hair)}
+  .brandbar .tag{
+    font-family:var(--disp);font-weight:600;font-size:12.5px;
+    letter-spacing:0.2em;color:var(--ink-3);
+  }
+  .hero h1{
+    font-weight:900;
+    font-size:clamp(31px,6.6vw,45px);
+    line-height:1.3;letter-spacing:-0.042em;
+    margin:0 0 18px;text-wrap:balance;
+  }
+  .hero h1 em{
+    font-style:normal;color:var(--orange);
+    background:linear-gradient(transparent 62%,#FFE1D5 62%);
+  }
+  .hero p.lede{
+    color:var(--ink-2);font-size:15.5px;max-width:36ch;margin:0 0 34px;
+  }
+
+  .headline-card{
+    background:var(--tint-warm);
+    border-radius:18px;
+    padding:26px 28px 24px;
+  }
+  .headline-card .cap{
+    font-family:var(--disp);font-weight:600;font-size:12.5px;
+    letter-spacing:0.18em;color:var(--orange-deep);margin-bottom:2px;
+  }
+  .readout{display:flex;align-items:baseline;gap:7px;color:var(--orange-deep)}
+  .readout .num{
+    font-family:var(--disp);font-weight:700;
+    font-size:clamp(58px,13.5vw,88px);
+    line-height:1;letter-spacing:-0.018em;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .won{font-weight:900;font-size:clamp(20px,4vw,26px)}
+  .breakdown{
+    display:flex;flex-wrap:wrap;align-items:center;gap:7px;
+    margin-top:18px;
+  }
+  .breakdown b{
+    background:var(--surface);
+    border-radius:999px;
+    padding:6px 13px;
+    font-size:13px;font-weight:700;color:var(--ink-2);
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+  }
+  .breakdown i{font-style:normal;color:var(--ink-3);font-weight:700;font-size:13px}
+
+  /* ---------- rewards ---------- */
+  .rewards{border-top:2px solid var(--ink)}
   .row{
-    display:grid;
-    grid-template-columns:1fr auto;
-    gap:4px 20px;
-    align-items:end;
-    padding:22px 0 20px;
-    border-bottom:1px solid var(--hair);
+    display:grid;grid-template-columns:1fr auto;gap:2px 22px;align-items:end;
+    padding:22px 0 21px;border-bottom:1px solid var(--hair);
   }
   .row .when{
-    font-family:var(--mono);font-size:11px;letter-spacing:0.16em;
-    color:var(--brand);text-transform:uppercase;
-    grid-column:1/-1;margin-bottom:2px;
+    grid-column:1/-1;
+    font-family:var(--disp);font-weight:600;font-size:12px;
+    letter-spacing:0.16em;text-transform:uppercase;color:var(--blue);
+    margin-bottom:3px;
   }
-  .row .what{font-weight:700;font-size:17px;letter-spacing:-0.02em;line-height:1.5}
-  .row .who{color:var(--steel);font-size:13.5px;grid-column:1;line-height:1.5}
+  .row .what{font-weight:700;font-size:17.5px;letter-spacing:-0.028em;line-height:1.5}
+  .row .who{grid-column:1;color:var(--ink-3);font-size:13.5px;line-height:1.55}
   .row .amt{
-    grid-row:2/4;grid-column:2;
+    grid-row:2/4;grid-column:2;text-align:right;white-space:nowrap;
     font-family:var(--disp);font-weight:700;
-    font-size:clamp(30px,7vw,42px);
-    line-height:1;
-    font-variant-numeric:tabular-nums;
-    letter-spacing:-0.01em;
-    white-space:nowrap;
-    text-align:right;
+    font-size:clamp(31px,7.4vw,44px);line-height:1;
+    letter-spacing:-0.012em;font-variant-numeric:tabular-nums;
+    color:var(--ink);
   }
   .row .amt small{
-    font-family:var(--kr);font-weight:700;font-size:15px;color:var(--steel);
-    margin-left:3px;letter-spacing:0;
+    font-family:var(--kr);font-weight:700;font-size:15px;
+    color:var(--ink-3);margin-left:3px;letter-spacing:0;
   }
   .row .amt .pre{
-    display:block;font-family:var(--mono);font-weight:400;
-    font-size:10.5px;letter-spacing:0.14em;color:var(--steel);
-    margin-bottom:5px;
+    display:block;font-weight:600;font-size:11.5px;
+    letter-spacing:0.14em;color:var(--ink-3);margin-bottom:5px;
   }
   .sum{
-    display:flex;justify-content:space-between;align-items:baseline;
-    gap:16px;padding:20px 0 0;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    margin-top:16px;background:var(--tint-blue);border-radius:14px;
+    padding:18px 22px;
   }
-  .sum span{font-weight:700;font-size:15px}
+  .sum span{font-weight:700;font-size:15px;color:var(--blue-deep)}
   .sum b{
-    font-family:var(--disp);font-weight:700;font-size:34px;
-    font-variant-numeric:tabular-nums;color:var(--brand);
+    font-family:var(--disp);font-weight:700;font-size:36px;
+    color:var(--blue);font-variant-numeric:tabular-nums;line-height:1;
   }
   .sum b small{font-family:var(--kr);font-size:15px;margin-left:3px}
 
   /* ---------- steps ---------- */
-  ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+  ol.steps{list-style:none;margin:0;padding:0}
   ol.steps li{
-    display:grid;grid-template-columns:38px 1fr;gap:0 16px;
+    display:grid;grid-template-columns:40px 1fr;gap:0 16px;
     padding:20px 0;border-top:1px solid var(--hair);
   }
   ol.steps li:last-child{border-bottom:1px solid var(--hair)}
   ol.steps .n{
-    font-family:var(--disp);font-weight:600;font-size:20px;
-    color:var(--brand);line-height:1.5;font-variant-numeric:tabular-nums;
+    font-family:var(--disp);font-weight:700;font-size:21px;
+    color:var(--blue);line-height:1.45;font-variant-numeric:tabular-nums;
   }
-  ol.steps h3{margin:0;font-size:16.5px;font-weight:700;letter-spacing:-0.02em;line-height:1.5}
-  ol.steps p{margin:3px 0 0;color:var(--steel);font-size:14px;line-height:1.7}
+  ol.steps h3{margin:0;font-size:17px;font-weight:700;letter-spacing:-0.028em;line-height:1.5}
+  ol.steps p{margin:4px 0 0;color:var(--ink-3);font-size:14px;line-height:1.72}
 
   /* ---------- channels ---------- */
-  .channels{display:grid;gap:1px;background:var(--hair);border:1px solid var(--hair)}
-  .ch{background:var(--surface);padding:16px 18px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+  .channels{display:grid;gap:10px}
+  .ch{
+    background:var(--tint-grey);border-radius:14px;padding:16px 20px;
+    display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;
+  }
   .ch .kind{
-    font-family:var(--mono);font-size:11px;letter-spacing:0.14em;color:var(--steel);
-    min-width:104px;text-transform:uppercase;
+    font-family:var(--disp);font-weight:600;font-size:12.5px;
+    letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3);
+    min-width:108px;
   }
-  .ch .names{font-weight:700;font-size:15.5px;letter-spacing:-0.02em}
-  .ch .names i{font-style:normal;color:var(--hair-strong);margin:0 8px;font-weight:400}
+  .ch .names{font-weight:700;font-size:15.5px;letter-spacing:-0.028em;color:var(--ink)}
+  .ch .names i{font-style:normal;color:var(--hair-2);margin:0 8px;font-weight:400}
 
-  /* ---------- criteria ---------- */
-  .crit{display:grid;gap:14px;margin:0;padding:0;list-style:none}
-  .crit li{
-    display:grid;grid-template-columns:16px 1fr;gap:12px;
-    font-size:15px;line-height:1.7;
+  /* ---------- before / after ---------- */
+  .ba{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 26px;
   }
+  .ba figure{margin:0}
+  .ba .lens{
+    height:104px;border-radius:14px;position:relative;overflow:hidden;
+    border:1px solid var(--hair);
+  }
+  .ba .lens.before{
+    background:
+      radial-gradient(120% 100% at 50% 120%, #C99A45 0%, #E3C387 42%, #F2E2C4 100%);
+  }
+  .ba .lens.after{
+    background:
+      radial-gradient(120% 100% at 50% 120%, #7FA9E8 0%, #C7DCF7 42%, #F2F7FE 100%);
+  }
+  .ba .lens::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(105deg,rgba(255,255,255,.75) 0 16%,transparent 34%);
+  }
+  .ba figcaption{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-top:9px;
+    font-family:var(--disp);font-weight:600;font-size:12.5px;letter-spacing:0.16em;
+    color:var(--ink-3);
+  }
+  .ba figcaption b{font-family:var(--kr);font-size:13.5px;letter-spacing:-0.02em;color:var(--ink-2);font-weight:700}
+
+  .crit{display:grid;gap:15px;margin:0;padding:0;list-style:none}
+  .crit li{display:grid;grid-template-columns:18px 1fr;gap:12px;font-size:15.5px;line-height:1.7}
   .crit li::before{
-    content:"";width:7px;height:7px;margin-top:11px;
-    background:var(--brand);border-radius:50%;
+    content:"";width:8px;height:8px;margin-top:11px;
+    background:var(--orange);border-radius:50%;
   }
   .crit li b{font-weight:700}
-  .crit li span{display:block;color:var(--steel);font-size:13.5px;margin-top:1px}
+  .crit li span{display:block;color:var(--ink-3);font-size:13.5px;margin-top:1px;line-height:1.7}
 
-  /* ---------- schedule table ---------- */
+  /* ---------- schedule ---------- */
   .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table{border-collapse:collapse;width:100%;min-width:460px;font-size:14.5px}
-  th,td{text-align:left;padding:14px 14px 14px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+  th,td{text-align:left;padding:15px 16px 15px 0;border-bottom:1px solid var(--hair);vertical-align:top}
   thead th{
-    font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:0.14em;
-    text-transform:uppercase;color:var(--steel);
-    border-bottom:1px solid var(--ink);padding-bottom:10px;
+    font-family:var(--disp);font-weight:600;font-size:12.5px;letter-spacing:0.16em;
+    text-transform:uppercase;color:var(--ink-3);
+    border-bottom:1.5px solid var(--ink);padding-bottom:11px;
   }
-  tbody th{font-weight:700;white-space:nowrap;letter-spacing:-0.02em}
+  tbody th{font-weight:700;white-space:nowrap;letter-spacing:-0.028em;color:var(--ink)}
   td{color:var(--ink-2)}
 
-  /* ---------- fine print ---------- */
-  .fine{background:var(--panel-soft);color:var(--on-panel)}
-  .fine h2{color:var(--on-panel)}
-  .fine .eyebrow{color:var(--on-panel-dim)}
-  .fine .sec-note{color:var(--on-panel-dim)}
-  .fine ol{margin:0;padding-left:1.1em;color:var(--on-panel-dim);font-size:13.5px;line-height:1.9}
-  .fine ol li{margin-bottom:9px;padding-left:4px}
-  .fine ol li b{color:var(--on-panel);font-weight:500}
+  /* ---------- notice ---------- */
+  .fine{background:var(--tint-grey)}
+  .fine ol{margin:0;padding-left:1.15em;color:var(--ink-2);font-size:14px;line-height:1.85}
+  .fine ol li{margin-bottom:11px;padding-left:5px}
+  .fine ol li::marker{color:var(--ink-3)}
+  .fine ol li b{font-weight:700;color:var(--ink)}
   .contact{
-    margin-top:30px;padding-top:22px;border-top:1px solid var(--hair-panel);
-    display:flex;flex-wrap:wrap;gap:6px 26px;
-    font-family:var(--mono);font-size:11.5px;letter-spacing:0.08em;color:var(--on-panel-dim);
+    margin-top:28px;padding-top:22px;border-top:1px solid var(--hair-2);
+    display:flex;flex-wrap:wrap;gap:6px 28px;font-size:13.5px;color:var(--ink-3);
   }
-  .contact b{color:var(--on-panel);font-weight:500}
+  .contact b{color:var(--ink-2);font-weight:700}
 
+  /* ---------- closing ---------- */
   .closing{
-    background:var(--panel);color:var(--on-panel);
-    padding:46px 32px 54px;text-align:center;
+    background:var(--tint-blue);padding:50px 34px 56px;text-align:center;
   }
   .closing p{
-    font-size:clamp(19px,4.4vw,25px);font-weight:900;letter-spacing:-0.035em;
-    margin:0 0 8px;line-height:1.5;
+    font-size:clamp(20px,4.6vw,27px);font-weight:900;letter-spacing:-0.042em;
+    margin:0 0 10px;line-height:1.5;color:var(--blue-deep);text-wrap:balance;
   }
   .closing .sub{
-    font-family:var(--mono);font-size:11px;letter-spacing:0.18em;
-    color:var(--on-panel-dim);font-weight:400;
+    font-family:var(--disp);font-weight:600;font-size:12.5px;
+    letter-spacing:0.2em;color:var(--blue);
   }
 
   @media (max-width:520px){
-    .hero{padding:40px 20px 0}
-    section{padding:42px 20px}
-    .closing{padding:40px 20px 46px}
+    .hero{padding:34px 20px 44px}
+    section{padding:44px 20px}
+    .closing{padding:42px 20px 48px}
+    .headline-card{padding:22px 20px 20px;border-radius:16px}
     .row{grid-template-columns:1fr;align-items:start}
     .row .amt{grid-row:auto;grid-column:1;text-align:left;margin-top:10px}
+    .row .amt .pre{display:inline;margin:0 8px 0 0;font-size:11px}
     .ch .kind{min-width:0;flex-basis:100%}
   }
   @media (prefers-reduced-motion:reduce){
@@ -313,23 +289,22 @@
     </div>
 
     <h1>사진 한 장이면<br><em>후기가 돈이 됩니다</em></h1>
-    <p class="lede">장착 사진 1장과 세 줄이면 충분합니다. 남기는 즉시 150원이 적립되고, 잘 쓴 후기는 한 건으로 최대 15,150원까지 받습니다.</p>
+    <p class="lede">시공한 사진 한 장과 세 줄이면 충분합니다. 남기는 즉시 150원, 잘 쓴 후기는 한 건으로 이만큼까지 받습니다.</p>
 
-    <div class="gauge">
-      <div class="cap"><span>MAX / 후기 1건</span><span>150 + 5,000 + 10,000</span></div>
+    <div class="headline-card">
+      <p class="cap">MAX / 후기 1건</p>
       <div class="readout">
         <span class="num" id="readout" data-target="15150">15,150</span>
         <span class="won">원</span>
       </div>
-      <div class="ticks" aria-hidden="true">
-        <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
-        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      <div class="breakdown">
+        <b>즉시 150원</b><i>+</i><b>주간 5,000원</b><i>+</i><b>월간 10,000원</b>
       </div>
     </div>
   </header>
 
   <section>
-    <p class="eyebrow">REWARD</p>
+    <p class="eyebrow">Reward</p>
     <h2>세 가지 방식으로 쌓입니다</h2>
     <p class="sec-note">기본 적립은 조건 없이 모두에게. 여기에 주간·월간 선정이 더해집니다.</p>
 
@@ -338,19 +313,19 @@
         <span class="when">즉시 · 상시</span>
         <span class="what">쓰는 즉시 적립</span>
         <span class="who">후기를 남긴 모든 분</span>
-        <span class="amt"><span class="pre">EVERYONE</span>150<small>원</small></span>
+        <span class="amt"><span class="pre">누구나</span>150<small>원</small></span>
       </div>
       <div class="row">
         <span class="when">매주 금요일 발표</span>
         <span class="what">주간 우수 후기</span>
         <span class="who">한 주 동안의 후기 중 14분</span>
-        <span class="amt"><span class="pre">UP TO</span>5,000<small>원</small></span>
+        <span class="amt"><span class="pre">최대</span>5,000<small>원</small></span>
       </div>
       <div class="row">
         <span class="when">매월 첫째 주 발표</span>
         <span class="what">이달의 후기</span>
         <span class="who">한 달 동안의 후기 중 3분</span>
-        <span class="amt"><span class="pre">FIXED</span>10,000<small>원</small></span>
+        <span class="amt"><span class="pre">정액</span>10,000<small>원</small></span>
       </div>
       <div class="sum">
         <span>세 가지가 모두 겹치면</span>
@@ -360,7 +335,7 @@
   </section>
 
   <section>
-    <p class="eyebrow">HOW TO</p>
+    <p class="eyebrow">How to</p>
     <h2>참여는 3분이면 끝납니다</h2>
     <p class="sec-note">순서대로 따라 하시면 됩니다.</p>
 
@@ -368,8 +343,8 @@
       <li>
         <span class="n">01</span>
         <div>
-          <h3>제품 사진을 1장 찍습니다</h3>
-          <p>차량에 장착한 모습이면 가장 좋습니다. 실내 조명보다 낮에 찍은 사진이 선정에 유리합니다.</p>
+          <h3>시공한 사진을 1장 찍습니다</h3>
+          <p>차량에 적용한 모습이면 가장 좋습니다. 실내 조명보다 낮에 밖에서 찍은 사진이 선정에 유리합니다.</p>
         </div>
       </li>
       <li>
@@ -390,7 +365,7 @@
   </section>
 
   <section>
-    <p class="eyebrow">CHANNELS</p>
+    <p class="eyebrow">Channels</p>
     <h2>후기를 남기는 곳</h2>
     <p class="sec-note">아래 사이트에 남긴 후기 중에서 선정합니다.</p>
 
@@ -402,19 +377,30 @@
   </section>
 
   <section>
-    <p class="eyebrow">CRITERIA</p>
+    <p class="eyebrow">Criteria</p>
     <h2>이런 후기가 뽑힙니다</h2>
-    <p class="sec-note">길게 쓸 필요는 없습니다. 다음 셋 중 하나만 담겨도 선정 확률이 올라갑니다.</p>
+    <p class="sec-note">길게 쓸 필요는 없습니다. 아래 셋 중 하나만 담겨도 선정 확률이 올라갑니다.</p>
+
+    <div class="ba" aria-hidden="true">
+      <figure>
+        <div class="lens before"></div>
+        <figcaption><span>BEFORE</span><b>시공 전</b></figcaption>
+      </figure>
+      <figure>
+        <div class="lens after"></div>
+        <figcaption><span>AFTER</span><b>시공 후</b></figcaption>
+      </figure>
+    </div>
 
     <ul class="crit">
-      <li><div><b>실제 장착·사용 사진</b><span>제품 단독 컷보다 차량에 적용된 모습이 도움이 됩니다.</span></div></li>
+      <li><div><b>시공 전·후를 한 컷씩</b><span>가장 확실한 방법입니다. 같은 각도, 같은 자리에서 찍은 두 장이면 됩니다.</span></div></li>
       <li><div><b>구매 이유와 사용 후 달라진 점</b><span>“무엇이 불편해서 샀고, 쓰고 나서 어떻게 됐는지” 두 문장이면 충분합니다.</span></div></li>
-      <li><div><b>차종·연식 등 구체적인 정보</b><span>같은 차를 타는 다음 사람에게 가장 도움이 되는 정보입니다.</span></div></li>
+      <li><div><b>차종·연식과 시공 조건</b><span>같은 차를 타는 다음 사람에게 가장 도움이 되는 정보입니다.</span></div></li>
     </ul>
   </section>
 
   <section>
-    <p class="eyebrow">SCHEDULE</p>
+    <p class="eyebrow">Schedule</p>
     <h2>발표와 지급</h2>
     <p class="sec-note">선정 결과는 각 채널 공지와 개별 안내로 알려드립니다.</p>
 
@@ -433,7 +419,7 @@
   </section>
 
   <section class="fine">
-    <p class="eyebrow">NOTICE</p>
+    <p class="eyebrow">Notice</p>
     <h2>유의사항</h2>
     <p class="sec-note">참여 전에 한 번만 확인해 주세요.</p>
     <ol>
@@ -465,14 +451,12 @@
     var target = parseInt(el.getAttribute('data-target'), 10);
     if (reduce || !target) return;
 
-    var start = null;
-    var duration = 1100;
+    var start = null, duration = 1100;
     function ease(t) { return 1 - Math.pow(1 - t, 3); }
     function frame(now) {
       if (start === null) start = now;
       var t = Math.min((now - start) / duration, 1);
-      var v = Math.round(target * ease(t));
-      el.textContent = v.toLocaleString('ko-KR');
+      el.textContent = Math.round(target * ease(t)).toLocaleString('ko-KR');
       if (t < 1) requestAnimationFrame(frame);
     }
     el.textContent = '0';
