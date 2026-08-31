@@ -1,0 +1,481 @@
+<title>이젠오토 리뷰 이벤트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700;900&family=Saira+Condensed:wght@500;600;700&display=swap">
+<style>
+  :root{
+    --paper:#F3F4F6;
+    --surface:#FFFFFF;
+    --panel:#13171C;
+    --panel-soft:#1C222A;
+    --ink:#13171C;
+    --ink-2:#3C444E;
+    --steel:#6B7480;
+    --hair:#DDE0E4;
+    --hair-strong:#C6CAD1;
+    --brand:#0B4FD1;
+    --brand-soft:#E8EEFB;
+    --on-panel:#F3F4F6;
+    --on-panel-dim:#8F99A6;
+    --hair-panel:#2C333C;
+    --brand-on-panel:#7BA4FF;
+
+    --kr:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --disp:"Saira Condensed","Noto Sans KR",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1114;
+      --surface:#161B21;
+      --panel:#080A0D;
+      --panel-soft:#12171D;
+      --ink:#E9EBEE;
+      --ink-2:#B8BEC7;
+      --steel:#8A939E;
+      --hair:#272D35;
+      --hair-strong:#39414B;
+      --brand:#6E9BFF;
+      --brand-soft:#182337;
+      --on-panel:#E9EBEE;
+      --on-panel-dim:#7F8894;
+      --hair-panel:#232A33;
+      --brand-on-panel:#8FB2FF;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1114;
+    --surface:#161B21;
+    --panel:#080A0D;
+    --panel-soft:#12171D;
+    --ink:#E9EBEE;
+    --ink-2:#B8BEC7;
+    --steel:#8A939E;
+    --hair:#272D35;
+    --hair-strong:#39414B;
+    --brand:#6E9BFF;
+    --brand-soft:#182337;
+    --on-panel:#E9EBEE;
+    --on-panel-dim:#7F8894;
+    --hair-panel:#232A33;
+    --brand-on-panel:#8FB2FF;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--kr);
+    font-size:16px;
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+    letter-spacing:-0.01em;
+  }
+  .wrap{max-width:760px;margin:0 auto;background:var(--surface);}
+  @media (min-width:820px){
+    .wrap{box-shadow:0 1px 0 var(--hair),0 0 0 1px var(--hair);}
+  }
+
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--steel);
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    background:var(--panel);
+    color:var(--on-panel);
+    padding:56px 32px 0;
+    position:relative;
+    overflow:hidden;
+  }
+  .brandbar{
+    display:flex;align-items:center;gap:14px;
+    padding-bottom:34px;
+  }
+  .brandbar .mark{
+    font-family:var(--disp);
+    font-weight:700;font-size:23px;letter-spacing:0.06em;
+    color:var(--on-panel);
+  }
+  .brandbar .rule{flex:1;height:1px;background:var(--hair-panel)}
+  .brandbar .tag{
+    font-family:var(--mono);font-size:11px;letter-spacing:0.2em;
+    color:var(--on-panel-dim);
+  }
+  .hero h1{
+    font-family:var(--kr);
+    font-weight:900;
+    font-size:clamp(30px,6.4vw,44px);
+    line-height:1.28;
+    letter-spacing:-0.035em;
+    margin:0 0 18px;
+    text-wrap:balance;
+  }
+  .hero h1 em{font-style:normal;color:var(--brand-on-panel);}
+  .hero p.lede{
+    color:var(--on-panel-dim);
+    font-size:15px;
+    max-width:40ch;
+    margin:0 0 40px;
+  }
+
+  .gauge{
+    border-top:1px solid var(--hair-panel);
+    padding-top:26px;
+    padding-bottom:34px;
+  }
+  .gauge .cap{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:var(--mono);font-size:11px;letter-spacing:0.14em;
+    color:var(--on-panel-dim);
+    margin-bottom:6px;
+  }
+  .readout{
+    display:flex;align-items:baseline;gap:8px;
+    font-family:var(--disp);
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .num{
+    font-weight:700;
+    font-size:clamp(62px,15vw,104px);
+    line-height:0.92;
+    letter-spacing:-0.02em;
+  }
+  .readout .won{
+    font-family:var(--kr);font-weight:700;
+    font-size:clamp(20px,4vw,28px);
+    color:var(--on-panel-dim);
+  }
+  .ticks{
+    display:flex;gap:5px;margin-top:20px;
+  }
+  .ticks i{flex:1;height:8px;background:var(--hair-panel);border-radius:1px}
+  .ticks i.on{background:var(--brand-on-panel)}
+  .ticks i:nth-child(n+13){opacity:.45}
+
+  /* ---------- shared section ---------- */
+  section{padding:52px 32px}
+  section + section{border-top:1px solid var(--hair)}
+  h2{
+    font-size:22px;font-weight:900;letter-spacing:-0.03em;
+    margin:10px 0 6px;line-height:1.4;
+  }
+  .sec-note{color:var(--steel);font-size:14px;margin:0 0 28px}
+
+  /* ---------- reward rows ---------- */
+  .rewards{border-top:1px solid var(--ink);}
+  .row{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:4px 20px;
+    align-items:end;
+    padding:22px 0 20px;
+    border-bottom:1px solid var(--hair);
+  }
+  .row .when{
+    font-family:var(--mono);font-size:11px;letter-spacing:0.16em;
+    color:var(--brand);text-transform:uppercase;
+    grid-column:1/-1;margin-bottom:2px;
+  }
+  .row .what{font-weight:700;font-size:17px;letter-spacing:-0.02em;line-height:1.5}
+  .row .who{color:var(--steel);font-size:13.5px;grid-column:1;line-height:1.5}
+  .row .amt{
+    grid-row:2/4;grid-column:2;
+    font-family:var(--disp);font-weight:700;
+    font-size:clamp(30px,7vw,42px);
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:-0.01em;
+    white-space:nowrap;
+    text-align:right;
+  }
+  .row .amt small{
+    font-family:var(--kr);font-weight:700;font-size:15px;color:var(--steel);
+    margin-left:3px;letter-spacing:0;
+  }
+  .row .amt .pre{
+    display:block;font-family:var(--mono);font-weight:400;
+    font-size:10.5px;letter-spacing:0.14em;color:var(--steel);
+    margin-bottom:5px;
+  }
+  .sum{
+    display:flex;justify-content:space-between;align-items:baseline;
+    gap:16px;padding:20px 0 0;
+  }
+  .sum span{font-weight:700;font-size:15px}
+  .sum b{
+    font-family:var(--disp);font-weight:700;font-size:34px;
+    font-variant-numeric:tabular-nums;color:var(--brand);
+  }
+  .sum b small{font-family:var(--kr);font-size:15px;margin-left:3px}
+
+  /* ---------- steps ---------- */
+  ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+  ol.steps li{
+    display:grid;grid-template-columns:38px 1fr;gap:0 16px;
+    padding:20px 0;border-top:1px solid var(--hair);
+  }
+  ol.steps li:last-child{border-bottom:1px solid var(--hair)}
+  ol.steps .n{
+    font-family:var(--disp);font-weight:600;font-size:20px;
+    color:var(--brand);line-height:1.5;font-variant-numeric:tabular-nums;
+  }
+  ol.steps h3{margin:0;font-size:16.5px;font-weight:700;letter-spacing:-0.02em;line-height:1.5}
+  ol.steps p{margin:3px 0 0;color:var(--steel);font-size:14px;line-height:1.7}
+
+  /* ---------- channels ---------- */
+  .channels{display:grid;gap:1px;background:var(--hair);border:1px solid var(--hair)}
+  .ch{background:var(--surface);padding:16px 18px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+  .ch .kind{
+    font-family:var(--mono);font-size:11px;letter-spacing:0.14em;color:var(--steel);
+    min-width:104px;text-transform:uppercase;
+  }
+  .ch .names{font-weight:700;font-size:15.5px;letter-spacing:-0.02em}
+  .ch .names i{font-style:normal;color:var(--hair-strong);margin:0 8px;font-weight:400}
+
+  /* ---------- criteria ---------- */
+  .crit{display:grid;gap:14px;margin:0;padding:0;list-style:none}
+  .crit li{
+    display:grid;grid-template-columns:16px 1fr;gap:12px;
+    font-size:15px;line-height:1.7;
+  }
+  .crit li::before{
+    content:"";width:7px;height:7px;margin-top:11px;
+    background:var(--brand);border-radius:50%;
+  }
+  .crit li b{font-weight:700}
+  .crit li span{display:block;color:var(--steel);font-size:13.5px;margin-top:1px}
+
+  /* ---------- schedule table ---------- */
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{border-collapse:collapse;width:100%;min-width:460px;font-size:14.5px}
+  th,td{text-align:left;padding:14px 14px 14px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+  thead th{
+    font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:0.14em;
+    text-transform:uppercase;color:var(--steel);
+    border-bottom:1px solid var(--ink);padding-bottom:10px;
+  }
+  tbody th{font-weight:700;white-space:nowrap;letter-spacing:-0.02em}
+  td{color:var(--ink-2)}
+
+  /* ---------- fine print ---------- */
+  .fine{background:var(--panel-soft);color:var(--on-panel)}
+  .fine h2{color:var(--on-panel)}
+  .fine .eyebrow{color:var(--on-panel-dim)}
+  .fine .sec-note{color:var(--on-panel-dim)}
+  .fine ol{margin:0;padding-left:1.1em;color:var(--on-panel-dim);font-size:13.5px;line-height:1.9}
+  .fine ol li{margin-bottom:9px;padding-left:4px}
+  .fine ol li b{color:var(--on-panel);font-weight:500}
+  .contact{
+    margin-top:30px;padding-top:22px;border-top:1px solid var(--hair-panel);
+    display:flex;flex-wrap:wrap;gap:6px 26px;
+    font-family:var(--mono);font-size:11.5px;letter-spacing:0.08em;color:var(--on-panel-dim);
+  }
+  .contact b{color:var(--on-panel);font-weight:500}
+
+  .closing{
+    background:var(--panel);color:var(--on-panel);
+    padding:46px 32px 54px;text-align:center;
+  }
+  .closing p{
+    font-size:clamp(19px,4.4vw,25px);font-weight:900;letter-spacing:-0.035em;
+    margin:0 0 8px;line-height:1.5;
+  }
+  .closing .sub{
+    font-family:var(--mono);font-size:11px;letter-spacing:0.18em;
+    color:var(--on-panel-dim);font-weight:400;
+  }
+
+  @media (max-width:520px){
+    .hero{padding:40px 20px 0}
+    section{padding:42px 20px}
+    .closing{padding:40px 20px 46px}
+    .row{grid-template-columns:1fr;align-items:start}
+    .row .amt{grid-row:auto;grid-column:1;text-align:left;margin-top:10px}
+    .ch .kind{min-width:0;flex-basis:100%}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="brandbar">
+      <span class="mark">EGEN AUTO</span>
+      <span class="rule"></span>
+      <span class="tag">REVIEW EVENT</span>
+    </div>
+
+    <h1>사진 한 장이면<br><em>후기가 돈이 됩니다</em></h1>
+    <p class="lede">장착 사진 1장과 세 줄이면 충분합니다. 남기는 즉시 150원이 적립되고, 잘 쓴 후기는 한 건으로 최대 15,150원까지 받습니다.</p>
+
+    <div class="gauge">
+      <div class="cap"><span>MAX / 후기 1건</span><span>150 + 5,000 + 10,000</span></div>
+      <div class="readout">
+        <span class="num" id="readout" data-target="15150">15,150</span>
+        <span class="won">원</span>
+      </div>
+      <div class="ticks" aria-hidden="true">
+        <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <p class="eyebrow">REWARD</p>
+    <h2>세 가지 방식으로 쌓입니다</h2>
+    <p class="sec-note">기본 적립은 조건 없이 모두에게. 여기에 주간·월간 선정이 더해집니다.</p>
+
+    <div class="rewards">
+      <div class="row">
+        <span class="when">즉시 · 상시</span>
+        <span class="what">쓰는 즉시 적립</span>
+        <span class="who">후기를 남긴 모든 분</span>
+        <span class="amt"><span class="pre">EVERYONE</span>150<small>원</small></span>
+      </div>
+      <div class="row">
+        <span class="when">매주 금요일 발표</span>
+        <span class="what">주간 우수 후기</span>
+        <span class="who">한 주 동안의 후기 중 14분</span>
+        <span class="amt"><span class="pre">UP TO</span>5,000<small>원</small></span>
+      </div>
+      <div class="row">
+        <span class="when">매월 첫째 주 발표</span>
+        <span class="what">이달의 후기</span>
+        <span class="who">한 달 동안의 후기 중 3분</span>
+        <span class="amt"><span class="pre">FIXED</span>10,000<small>원</small></span>
+      </div>
+      <div class="sum">
+        <span>세 가지가 모두 겹치면</span>
+        <b>15,150<small>원</small></b>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">HOW TO</p>
+    <h2>참여는 3분이면 끝납니다</h2>
+    <p class="sec-note">순서대로 따라 하시면 됩니다.</p>
+
+    <ol class="steps">
+      <li>
+        <span class="n">01</span>
+        <div>
+          <h3>제품 사진을 1장 찍습니다</h3>
+          <p>차량에 장착한 모습이면 가장 좋습니다. 실내 조명보다 낮에 찍은 사진이 선정에 유리합니다.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">02</span>
+        <div>
+          <h3>구매한 채널에 후기를 남깁니다</h3>
+          <p>아래 여섯 곳 중 실제로 구매하신 곳에 사진과 함께 세 줄 이상 작성해 주세요.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">03</span>
+        <div>
+          <h3>적립을 받습니다</h3>
+          <p>기본 150원은 확인 즉시 적립되고, 우수 후기는 주간·월간 발표를 통해 별도로 지급됩니다.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <p class="eyebrow">CHANNELS</p>
+    <h2>후기를 남기는 곳</h2>
+    <p class="sec-note">아래 사이트에 남긴 후기 중에서 선정합니다.</p>
+
+    <div class="channels">
+      <div class="ch"><span class="kind">자사몰</span><span class="names">이젠몰<i>/</i>이젠오토몰</span></div>
+      <div class="ch"><span class="kind">스마트스토어</span><span class="names">이젠몰<i>/</i>이젠오토몰</span></div>
+      <div class="ch"><span class="kind">네이버페이</span><span class="names">이젠몰<i>/</i>이젠오토몰</span></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">CRITERIA</p>
+    <h2>이런 후기가 뽑힙니다</h2>
+    <p class="sec-note">길게 쓸 필요는 없습니다. 다음 셋 중 하나만 담겨도 선정 확률이 올라갑니다.</p>
+
+    <ul class="crit">
+      <li><div><b>실제 장착·사용 사진</b><span>제품 단독 컷보다 차량에 적용된 모습이 도움이 됩니다.</span></div></li>
+      <li><div><b>구매 이유와 사용 후 달라진 점</b><span>“무엇이 불편해서 샀고, 쓰고 나서 어떻게 됐는지” 두 문장이면 충분합니다.</span></div></li>
+      <li><div><b>차종·연식 등 구체적인 정보</b><span>같은 차를 타는 다음 사람에게 가장 도움이 되는 정보입니다.</span></div></li>
+    </ul>
+  </section>
+
+  <section>
+    <p class="eyebrow">SCHEDULE</p>
+    <h2>발표와 지급</h2>
+    <p class="sec-note">선정 결과는 각 채널 공지와 개별 안내로 알려드립니다.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>발표</th><th>지급</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">즉시 적립</th><td>별도 발표 없음</td><td>후기 확인 후 영업일 기준 3일 이내</td></tr>
+          <tr><th scope="row">주간 우수 후기</th><td>매주 금요일</td><td>발표 다음 주 화요일</td></tr>
+          <tr><th scope="row">이달의 후기</th><td>매월 첫째 주</td><td>발표 후 3영업일 이내</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="fine">
+    <p class="eyebrow">NOTICE</p>
+    <h2>유의사항</h2>
+    <p class="sec-note">참여 전에 한 번만 확인해 주세요.</p>
+    <ol>
+      <li><b>동일 제품 기준 1인 1회</b> 적립됩니다. 제품이 다르면 각각 참여할 수 있습니다.</li>
+      <li>복사·붙여넣기한 문구, 제품과 무관한 사진, 타 브랜드 제품이 드러난 사진은 <b>선정에서 제외</b>됩니다.</li>
+      <li>적립 후 후기를 삭제하거나 수정해 조건에 맞지 않게 되면 <b>적립금이 회수</b>될 수 있습니다.</li>
+      <li>적립금은 후기를 남긴 <b>해당 채널의 정책과 수단</b>으로 지급됩니다. 채널에 따라 포인트·쿠폰 등 형태가 다를 수 있습니다.</li>
+      <li>주간·월간 선정은 <b>중복 수상이 가능</b>합니다. 세 가지가 모두 겹치면 한 건으로 15,150원입니다.</li>
+      <li>부정 참여가 확인되면 지급이 취소되며, 사정에 따라 <b>이벤트가 조기 종료·변경</b>될 수 있습니다.</li>
+    </ol>
+    <div class="contact">
+      <span><b>고객센터</b> 평일 09:00 – 18:00</span>
+      <span><b>주최</b> EGEN AUTO</span>
+    </div>
+  </section>
+
+  <footer class="closing">
+    <p>오늘 남긴 후기 한 줄이<br>다음 사람의 선택이 됩니다</p>
+    <span class="sub">EGEN AUTO · REVIEW EVENT</span>
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var el = document.getElementById('readout');
+    if (!el) return;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var target = parseInt(el.getAttribute('data-target'), 10);
+    if (reduce || !target) return;
+
+    var start = null;
+    var duration = 1100;
+    function ease(t) { return 1 - Math.pow(1 - t, 3); }
+    function frame(now) {
+      if (start === null) start = now;
+      var t = Math.min((now - start) / duration, 1);
+      var v = Math.round(target * ease(t));
+      el.textContent = v.toLocaleString('ko-KR');
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    el.textContent = '0';
+    requestAnimationFrame(frame);
+  })();
+</script>
