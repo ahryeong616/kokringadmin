@@ -45,14 +45,15 @@ w, h = lg.size
 lg.resize((900, round(h * 900 / w)), Image.LANCZOS).save('assets/logo_trim.png')
 print('  로고 bbox', box)
 
-# [모델] 캐릭터 시트에서 상단 히어로 상반신 컷(x 37~545, y 29~508)만 사용한다.
-#        얼굴이 가로 중앙(x≈291)에 있으므로 그 중심 기준 폭 360으로 잘라 3:4를 만든다.
+# [모델] 배너에는 얼굴만 원형 배지로 들어간다.
+#        캐릭터 시트 상단 히어로 컷(x 37~545, y 29~508) 안에서 얼굴 중심이
+#        정확히 가운데 오도록 정사각(380x380)으로 잘라낸다.
 #        ※ 다른 컷을 쓰려면 아래 crop 좌표만 바꾸면 된다.
 Image.open('model.png').convert('RGB') \
-     .crop((111, 29, 471, 509)) \
-     .resize((720, 960), Image.LANCZOS) \
-     .save('assets/model_crop.png')
-print('  모델 크롭 완료')
+     .crop((101, 40, 481, 420)) \
+     .resize((480, 480), Image.LANCZOS) \
+     .save('assets/model_face.png')
+print('  모델 얼굴 크롭 완료')
 PY
 
 # ── 3) 렌더링 ───────────────────────────────────────────────────────────────
