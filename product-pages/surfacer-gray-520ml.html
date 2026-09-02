@@ -1,0 +1,887 @@
+<!-- ============================================================================
+  제품 상세페이지 : 서페이서 회색 520ml (1액형 속건 프라이머 서페이서)
+  ----------------------------------------------------------------------------
+  [ 사용 방법 ]
+  1) 카페24 관리자 > 상품관리 > 상품수정 > 상세설명 > "HTML" (소스편집) 버튼 클릭
+  2) 아래 <div id="egen-detail"> ... </div> 전체를 복사해서 붙여넣기
+  3) IMG-01 ~ IMG-04 로 표시된 자리표시자를 실제 상품 사진 <img> 로 교체
+
+  [ 설계 원칙 ]
+  - 카페24 에디터가 <style>/<link> 태그를 제거하는 경우가 있어 스타일은 100% 인라인 처리
+  - 미디어쿼리 없이 clamp() + flex-wrap 만으로 PC/모바일 반응형 대응
+  - 상세페이지는 항상 흰 배경이므로 라이트 단일 테마로 색을 전부 명시 지정
+
+  [ TODO - PDF(carpaintmenuer220119.pdf) 확인 후 확정할 수치 ]
+  - "SPEC-CHECK" 주석이 달린 값(건조시간 / 도포면적 / 권장온도 / 도포거리)은
+    제품 설명서 실제 수치로 교체할 것. 현재는 1액형 속건 서페이서 일반값 기준.
+============================================================================ -->
+
+<!-- 웹폰트 : 카페24에서 <link>가 제거되더라도 아래 fallback 폰트로 정상 표시됨 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Gothic+A1:wght@300;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<div id="egen-detail" style="max-width:862px;margin:0 auto;background:#ffffff;color:#14161a;font-family:'Gothic A1','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-weight:400;line-height:1.8;-webkit-text-size-adjust:100%;overflow:hidden;">
+
+<!-- ==========================================================================
+     [S0] 히어로 : 제품의 한 줄 정의 + 스펙 칩
+     - 다크 그라운드 위에 초대형 타이틀. 스프레이 미스트를 CSS 그라디언트로 표현
+========================================================================== -->
+<section style="position:relative;background:#14161a;padding:clamp(56px,13vw,104px) clamp(20px,5vw,56px) clamp(40px,9vw,72px);overflow:hidden;">
+
+  <!-- 배경 : 우측 상단에서 퍼지는 서페이서 미스트(분무) 표현 -->
+  <div style="position:absolute;top:-18%;right:-14%;width:78%;height:78%;background:radial-gradient(circle at 60% 40%, rgba(154,160,166,0.38) 0%, rgba(154,160,166,0.10) 42%, rgba(20,22,26,0) 70%);pointer-events:none;"></div>
+  <!-- 배경 : 좌측 하단 오렌지 미세 발광 -->
+  <div style="position:absolute;bottom:-30%;left:-18%;width:62%;height:62%;background:radial-gradient(circle, rgba(232,84,31,0.16) 0%, rgba(20,22,26,0) 68%);pointer-events:none;"></div>
+
+  <div style="position:relative;">
+
+    <!-- 눈썹 라벨(모노) : 카테고리 -->
+    <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.22em;color:#e8541f;margin:0 0 clamp(18px,4vw,26px);">
+      AUTOMOTIVE&nbsp;REFINISH&nbsp;&nbsp;/&nbsp;&nbsp;1K&nbsp;PRIMER&nbsp;SURFACER
+    </div>
+
+    <!-- 메인 헤드라인 -->
+    <h1 style="margin:0;font-weight:900;font-size:clamp(36px,9vw,72px);line-height:0.98;letter-spacing:-0.035em;color:#f4f2ef;text-wrap:balance;">
+      기다리지 않는<br><span style="color:#e8541f;">서페이서</span>
+    </h1>
+
+    <!-- 서브 카피 -->
+    <p style="margin:clamp(22px,5vw,30px) 0 0;max-width:34em;font-size:clamp(15px,3.6vw,20px);line-height:1.75;color:#b7b9bd;font-weight:300;">
+      후레쉬타임 없이 <strong style="color:#f4f2ef;font-weight:700;">1회 · 2회 · 3회 연속 도포</strong>.<br>
+      경화제도, 계량도, 기다림도 없는 1액형 속건 프라이머 서페이서입니다.
+    </p>
+
+    <!-- 제품명 + 스펙 칩 -->
+    <div style="margin:clamp(30px,7vw,46px) 0 0;padding:clamp(20px,4.5vw,26px) 0 0;border-top:1px solid #32363d;">
+      <div style="font-size:clamp(16px,3.8vw,19px);font-weight:700;color:#f4f2ef;letter-spacing:-0.01em;">
+        서페이서 회색 520ml
+      </div>
+      <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;">
+        <span style="display:inline-block;padding:7px 13px;border:1px solid #3c4148;border-radius:2px;font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.06em;color:#c9ccd0;">1액형</span>
+        <span style="display:inline-block;padding:7px 13px;border:1px solid #3c4148;border-radius:2px;font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.06em;color:#c9ccd0;">속건형</span>
+        <span style="display:inline-block;padding:7px 13px;border:1px solid #3c4148;border-radius:2px;font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.06em;color:#c9ccd0;">GRAY / 회색</span>
+        <span style="display:inline-block;padding:7px 13px;border:1px solid #3c4148;border-radius:2px;font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.06em;color:#c9ccd0;">520ml 에어졸</span>
+        <span style="display:inline-block;padding:7px 13px;border:1px solid #e8541f;border-radius:2px;font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.06em;color:#e8541f;">FLASH TIME 0</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ==========================================================================
+     [IMG-01] 히어로 제품 컷
+     ※ 실제 사용 시 아래 div 를 통째로 <img src="..." style="display:block;width:100%;"> 로 교체
+     ※ 권장 : 어두운 배경에 캔 정면 누끼, 862 x 700px 이상
+========================================================================== -->
+<div style="position:relative;background:#1b1d22;background-image:repeating-linear-gradient(135deg, rgba(255,255,255,0.022) 0 12px, rgba(255,255,255,0) 12px 24px);padding:clamp(56px,13vw,96px) clamp(20px,5vw,40px);text-align:center;border-top:1px solid #2a2e35;">
+  <svg viewBox="0 0 64 64" width="44" height="44" fill="none" aria-hidden="true" style="display:block;margin:0 auto 18px;">
+    <rect x="6" y="16" width="52" height="38" rx="3" stroke="#5c6169" stroke-width="2.5"></rect>
+    <path d="M22 16l4-6h12l4 6" stroke="#5c6169" stroke-width="2.5" stroke-linejoin="round"></path>
+    <circle cx="32" cy="35" r="11" stroke="#e8541f" stroke-width="2.5"></circle>
+  </svg>
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.2em;color:#e8541f;margin-bottom:10px;">IMG-01</div>
+  <div style="font-size:14px;color:#8e939b;line-height:1.7;">제품 대표컷 · 캔 정면 누끼<br><span style="font-size:12px;color:#6b7079;">권장 862 × 700px 이상 / 어두운 배경</span></div>
+</div>
+
+<!-- ==========================================================================
+     [S1] 문제 제기 : 왜 하도(서페이서)가 필요한가
+========================================================================== -->
+<section style="background:#eceae6;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <!-- 섹션 코드 라벨 -->
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b8377;padding-bottom:14px;border-bottom:1px solid #d3d0ca;margin-bottom:clamp(26px,6vw,40px);">
+    01 &nbsp;—&nbsp; THE PROBLEM
+  </div>
+
+  <h2 style="margin:0;font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#14161a;text-wrap:balance;">
+    도색의 결과는 상도가 아니라<br>하도에서 갈립니다
+  </h2>
+
+  <p style="margin:clamp(20px,4.5vw,28px) 0 0;max-width:33em;font-size:clamp(15px,3.5vw,17px);line-height:1.9;color:#4a4d53;">
+    퍼티를 아무리 곱게 갈아도, 상도를 아무리 정성껏 뿌려도 하도가 잡히지 않으면
+    햇빛 아래에서 전부 드러납니다. 서페이서는 <strong style="font-weight:700;color:#14161a;">소지의 흠집을 메워 평탄하게 만들고,
+    상도가 붙잡을 면을 만들어 주는 층</strong>입니다.
+  </p>
+
+  <!-- 자주 겪는 4가지 하자 -->
+  <div style="margin:clamp(32px,7vw,46px) 0 0;display:flex;flex-wrap:wrap;gap:1px;background:#d3d0ca;border:1px solid #d3d0ca;">
+    <div style="flex:1 1 240px;background:#f7f6f4;padding:clamp(20px,4.5vw,26px);">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.14em;color:#e8541f;margin-bottom:9px;">ISSUE 01</div>
+      <div style="font-weight:700;font-size:16px;color:#14161a;margin-bottom:6px;">퍼티 자국이 비칩니다</div>
+      <div style="font-size:14px;line-height:1.8;color:#6b6f77;">퍼티와 구도막의 경계선이 상도 위로 그대로 올라옵니다.</div>
+    </div>
+    <div style="flex:1 1 240px;background:#f7f6f4;padding:clamp(20px,4.5vw,26px);">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.14em;color:#e8541f;margin-bottom:9px;">ISSUE 02</div>
+      <div style="font-weight:700;font-size:16px;color:#14161a;margin-bottom:6px;">미세 스크래치가 남습니다</div>
+      <div style="font-size:14px;line-height:1.8;color:#6b6f77;">사포 자국(연마흔)이 도료로 덮이지 않고 선으로 드러납니다.</div>
+    </div>
+    <div style="flex:1 1 240px;background:#f7f6f4;padding:clamp(20px,4.5vw,26px);">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.14em;color:#e8541f;margin-bottom:9px;">ISSUE 03</div>
+      <div style="font-weight:700;font-size:16px;color:#14161a;margin-bottom:6px;">색이 얼룩집니다</div>
+      <div style="font-size:14px;line-height:1.8;color:#6b6f77;">면마다 도료 흡수율이 달라 같은 색을 뿌려도 얼룩져 보입니다.</div>
+    </div>
+    <div style="flex:1 1 240px;background:#f7f6f4;padding:clamp(20px,4.5vw,26px);">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.14em;color:#e8541f;margin-bottom:9px;">ISSUE 04</div>
+      <div style="font-weight:700;font-size:16px;color:#14161a;margin-bottom:6px;">도막이 들뜹니다</div>
+      <div style="font-size:14px;line-height:1.8;color:#6b6f77;">밀착이 약해 시간이 지나면 벗겨지거나 갈라집니다.</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ==========================================================================
+     [GRAPHIC-01] 단면 비교 : 서페이서 미시공 vs 시공
+     - SVG 인포그래픽 (외부 이미지 불필요)
+========================================================================== -->
+<section style="background:#ffffff;padding:clamp(44px,10vw,80px) clamp(16px,4vw,48px);border-top:1px solid #e6e3de;border-bottom:1px solid #e6e3de;">
+  <div style="overflow-x:auto;">
+  <svg viewBox="0 0 800 360" width="100%" style="display:block;min-width:520px;height:auto;" role="img" aria-label="서페이서 미시공과 시공의 도막 단면 비교">
+
+    <!-- ------- 좌측 : 서페이서 없이 ------- -->
+    <text x="30" y="34" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="18" font-weight="700" fill="#14161a">서페이서 없이</text>
+    <text x="30" y="56" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#9a8f80">BEFORE</text>
+
+    <!-- 소지(철판) -->
+    <rect x="30" y="196" width="350" height="66" fill="#3a3f47"></rect>
+    <!-- 퍼티층 : 윗면이 울퉁불퉁 -->
+    <path d="M30 196 L30 172 C62 152 92 186 122 162 C152 140 182 180 212 158 C246 136 276 182 312 158 C342 140 366 176 380 166 L380 196 Z" fill="#cfc6b8"></path>
+    <!-- 상도(컬러) : 굴곡을 그대로 따라감 -->
+    <path d="M30 165 C62 145 92 179 122 155 C152 133 182 173 212 151 C246 129 276 175 312 151 C342 133 366 169 380 159" stroke="#2f6f9e" stroke-width="12" fill="none" stroke-linecap="square"></path>
+    <!-- 반사 하이라이트 : 굴곡 때문에 일그러짐 -->
+    <path d="M42 152 C70 134 98 166 128 143 C158 122 186 160 216 139 C250 118 278 162 314 139 C342 122 362 154 372 147" stroke="#ffffff" stroke-width="2.5" fill="none" opacity="0.75"></path>
+
+    <!-- 결함 지시선 -->
+    <line x1="212" y1="92" x2="212" y2="132" stroke="#e8541f" stroke-width="1.5"></line>
+    <circle cx="212" cy="140" r="4" fill="#e8541f"></circle>
+    <text x="212" y="82" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" font-weight="700" fill="#e8541f">퍼티 자국이 그대로 비침</text>
+
+    <text x="30" y="292" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" fill="#6b6f77">굴곡 위에 얇은 도막만 얹혀</text>
+    <text x="30" y="314" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" fill="#6b6f77">빛을 받으면 단차가 드러납니다.</text>
+
+    <!-- ------- 우측 : 서페이서 시공 ------- -->
+    <text x="420" y="34" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="18" font-weight="700" fill="#14161a">서페이서 시공</text>
+    <text x="420" y="56" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#e8541f">AFTER</text>
+
+    <!-- 소지(철판) -->
+    <rect x="420" y="196" width="350" height="66" fill="#3a3f47"></rect>
+    <!-- 퍼티층 : 동일한 굴곡 -->
+    <path d="M420 196 L420 172 C452 152 482 186 512 162 C542 140 572 180 602 158 C636 136 666 182 702 158 C732 140 756 176 770 166 L770 196 Z" fill="#cfc6b8"></path>
+    <!-- 서페이서층 : 굴곡을 메워 평탄하게 -->
+    <rect x="420" y="132" width="350" height="64" fill="#9aa0a6"></rect>
+    <!-- 서페이서 아래 묻힌 퍼티 윤곽(점선) : 굴곡이 메워졌음을 시각적으로 표시 -->
+    <path d="M420 172 C452 152 482 186 512 162 C542 140 572 180 602 158 C636 136 666 182 702 158 C732 140 756 176 770 166" stroke="#cfc6b8" stroke-width="1.5" stroke-dasharray="6 5" fill="none" opacity="0.9"></path>
+    <!-- 상도(컬러) : 평탄 -->
+    <rect x="420" y="118" width="350" height="14" fill="#2f6f9e"></rect>
+    <!-- 반사 하이라이트 : 곧게 뻗음 -->
+    <rect x="432" y="121" width="326" height="3" fill="#ffffff" opacity="0.8"></rect>
+
+    <!-- 서페이서층 지시선 -->
+    <line x1="595" y1="92" x2="595" y2="150" stroke="#e8541f" stroke-width="1.5"></line>
+    <circle cx="595" cy="158" r="4" fill="#e8541f"></circle>
+    <text x="595" y="82" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" font-weight="700" fill="#e8541f">서페이서가 굴곡을 채움</text>
+
+    <text x="420" y="292" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" fill="#6b6f77">하도가 면을 잡아주면</text>
+    <text x="420" y="314" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" fill="#6b6f77">반사선이 곧게 떨어집니다.</text>
+
+  </svg>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     [S2] 핵심 특징 3가지 (다크 섹션)
+========================================================================== -->
+<section style="background:#14161a;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b9098;padding-bottom:14px;border-bottom:1px solid #32363d;margin-bottom:clamp(26px,6vw,40px);">
+    02 &nbsp;—&nbsp; WHY THIS ONE
+  </div>
+
+  <h2 style="margin:0 0 clamp(34px,8vw,56px);font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#f4f2ef;text-wrap:balance;">
+    작업이 빨라지는 이유는<br>딱 세 가지입니다
+  </h2>
+
+  <!-- 특징 01 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(14px,4vw,34px);padding-bottom:clamp(28px,6vw,40px);margin-bottom:clamp(28px,6vw,40px);border-bottom:1px solid #282c33;">
+    <div style="flex:0 0 auto;font-family:'Archivo','Gothic A1',sans-serif;font-weight:800;font-size:clamp(44px,11vw,84px);line-height:0.82;color:#e8541f;letter-spacing:-0.04em;">01</div>
+    <div style="flex:1 1 300px;min-width:0;">
+      <h3 style="margin:0 0 12px;font-weight:900;font-size:clamp(20px,4.6vw,28px);line-height:1.3;letter-spacing:-0.02em;color:#f4f2ef;">후레쉬타임 없이 연속 도포</h3>
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#a4a8af;">
+        일반 서페이서는 1회 뿌린 뒤 용제가 날아갈 때까지 <strong style="color:#e2e0dc;font-weight:600;">5~10분을 기다렸다가</strong> 다음 회차를 뿌려야 합니다.
+        이 제품은 <strong style="color:#f4f2ef;font-weight:700;">기다리는 시간 없이 1회 · 2회 · 3회를 이어서</strong> 얹을 수 있습니다.
+        캔을 내려놓고 다시 잡을 일이 없으니, 도포 구간이 통째로 줄어듭니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- 특징 02 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(14px,4vw,34px);padding-bottom:clamp(28px,6vw,40px);margin-bottom:clamp(28px,6vw,40px);border-bottom:1px solid #282c33;">
+    <div style="flex:0 0 auto;font-family:'Archivo','Gothic A1',sans-serif;font-weight:800;font-size:clamp(44px,11vw,84px);line-height:0.82;color:#e8541f;letter-spacing:-0.04em;">02</div>
+    <div style="flex:1 1 300px;min-width:0;">
+      <h3 style="margin:0 0 12px;font-weight:900;font-size:clamp(20px,4.6vw,28px);line-height:1.3;letter-spacing:-0.02em;color:#f4f2ef;">1액형, 뚜껑 열면 바로</h3>
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#a4a8af;">
+        경화제 계량도, 혼합 비율도, 가사시간 걱정도 없습니다. 흔들고, 뿌리고, 닫으면 끝.
+        <strong style="color:#f4f2ef;font-weight:700;">남은 도료는 그대로 보관했다가 다음 작업에 다시 사용</strong>합니다.
+        2액형처럼 남은 양을 버릴 일이 없어 소량 보수 작업에 특히 유리합니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- 특징 03 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(14px,4vw,34px);">
+    <div style="flex:0 0 auto;font-family:'Archivo','Gothic A1',sans-serif;font-weight:800;font-size:clamp(44px,11vw,84px);line-height:0.82;color:#e8541f;letter-spacing:-0.04em;">03</div>
+    <div style="flex:1 1 300px;min-width:0;">
+      <h3 style="margin:0 0 12px;font-weight:900;font-size:clamp(20px,4.6vw,28px);line-height:1.3;letter-spacing:-0.02em;color:#f4f2ef;">두껍게 얹히고, 얇게 갈립니다</h3>
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#a4a8af;">
+        고형분이 높아 <strong style="color:#f4f2ef;font-weight:700;">퍼티 자국과 미세 연마흔을 한 번에 메우고</strong>,
+        건조 후에는 사포 눈이 막히지 않아 물사포가 부드럽게 먹습니다.
+        중간색인 회색이라 그 위에 올라가는 상도 색상의 은폐도 잘 잡아 줍니다.
+      </p>
+    </div>
+  </div>
+
+</section>
+
+<!-- ==========================================================================
+     [GRAPHIC-02] 작업 시간 비교 타임라인
+========================================================================== -->
+<section style="background:#1b1d22;padding:clamp(40px,9vw,72px) clamp(16px,4vw,48px);">
+  <div style="overflow-x:auto;">
+  <svg viewBox="0 0 800 250" width="100%" style="display:block;min-width:560px;height:auto;" role="img" aria-label="일반 서페이서와 본 제품의 3회 도포 소요시간 비교">
+
+    <text x="0" y="20" font-family="'IBM Plex Mono',monospace" font-size="12" letter-spacing="1.6" fill="#8b9098">3회 도포까지 걸리는 시간</text>
+
+    <!-- ---- 일반 서페이서 (대기시간 포함) ---- -->
+    <text x="0" y="66" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="15" font-weight="700" fill="#c9ccd0">일반 서페이서</text>
+    <!-- 도포 1회차 : 0~2분 -->
+    <rect x="150" y="48" width="60" height="26" fill="#9aa0a6"></rect>
+    <!-- 대기 : 2~9분 -->
+    <rect x="210" y="48" width="210" height="26" fill="#2e333a"></rect>
+    <text x="315" y="66" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="12" fill="#7d838b">대기</text>
+    <!-- 도포 2회차 : 9~11분 -->
+    <rect x="420" y="48" width="60" height="26" fill="#9aa0a6"></rect>
+    <!-- 대기 : 11~18분 -->
+    <rect x="480" y="48" width="210" height="26" fill="#2e333a"></rect>
+    <text x="585" y="66" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="12" fill="#7d838b">대기</text>
+    <!-- 도포 3회차 : 18~20분 -->
+    <rect x="690" y="48" width="60" height="26" fill="#9aa0a6"></rect>
+    <text x="762" y="67" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="600" fill="#9aa0a6">20분</text>
+
+    <!-- ---- 본 제품 (연속 도포) ---- -->
+    <text x="0" y="128" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="15" font-weight="700" fill="#f4f2ef">서페이서 회색 520ml</text>
+    <rect x="150" y="110" width="60" height="26" fill="#e8541f"></rect>
+    <rect x="212" y="110" width="60" height="26" fill="#e8541f"></rect>
+    <rect x="274" y="110" width="60" height="26" fill="#e8541f"></rect>
+    <text x="346" y="129" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="600" fill="#e8541f">6분</text>
+    <text x="150" y="156" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="12" fill="#8b9098">1회 · 2회 · 3회를 끊지 않고 이어서</text>
+
+    <!-- ---- 시간 축 ---- -->
+    <line x1="150" y1="192" x2="750" y2="192" stroke="#3a3f47" stroke-width="1"></line>
+    <line x1="150" y1="188" x2="150" y2="196" stroke="#5c6169" stroke-width="1"></line>
+    <text x="150" y="214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#7d838b">0</text>
+    <line x1="300" y1="188" x2="300" y2="196" stroke="#5c6169" stroke-width="1"></line>
+    <text x="300" y="214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#7d838b">5분</text>
+    <line x1="450" y1="188" x2="450" y2="196" stroke="#5c6169" stroke-width="1"></line>
+    <text x="450" y="214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#7d838b">10분</text>
+    <line x1="600" y1="188" x2="600" y2="196" stroke="#5c6169" stroke-width="1"></line>
+    <text x="600" y="214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#7d838b">15분</text>
+    <line x1="750" y1="188" x2="750" y2="196" stroke="#5c6169" stroke-width="1"></line>
+    <text x="750" y="214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#7d838b">20분</text>
+
+    <!-- 범례 -->
+    <rect x="150" y="232" width="12" height="12" fill="#9aa0a6"></rect>
+    <text x="168" y="242" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="12" fill="#8b9098">도포</text>
+    <rect x="210" y="232" width="12" height="12" fill="#2e333a"></rect>
+    <text x="228" y="242" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="12" fill="#8b9098">후레쉬타임(대기)</text>
+
+  </svg>
+  </div>
+  <!-- SPEC-CHECK : 아래 대기시간 수치는 일반 서페이서 통상값 기준. 설명서 확인 후 조정 -->
+  <p style="margin:clamp(20px,4vw,26px) 0 0;font-size:12px;line-height:1.7;color:#6b7079;text-align:center;">
+    ※ 일반 서페이서의 회차 간 대기시간을 7분으로 가정해 비교한 도식입니다. 실제 시간은 작업 온도와 도막 두께에 따라 달라집니다.
+  </p>
+</section>
+
+<!-- ==========================================================================
+     [S3] 도막 구조 : 이 제품이 놓이는 위치를 그림으로 설명
+     - 페이지의 시그니처 인포그래픽
+========================================================================== -->
+<section style="background:#f7f6f4;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b8377;padding-bottom:14px;border-bottom:1px solid #d3d0ca;margin-bottom:clamp(26px,6vw,40px);">
+    03 &nbsp;—&nbsp; COATING LAYERS
+  </div>
+
+  <h2 style="margin:0;font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#14161a;text-wrap:balance;">
+    이 제품은 도막의<br>세 번째 층입니다
+  </h2>
+  <p style="margin:clamp(20px,4.5vw,28px) 0 clamp(30px,7vw,44px);max-width:33em;font-size:clamp(15px,3.5vw,17px);line-height:1.9;color:#4a4d53;">
+    소지 → 퍼티 → <strong style="font-weight:700;color:#14161a;">서페이서</strong> → 베이스 컬러 → 클리어.
+    아래에서 세 번째, 색이 올라가기 바로 직전의 층입니다. 위쪽 두 층의 완성도는 여기서 결정됩니다.
+  </p>
+
+  <div style="overflow-x:auto;">
+  <svg viewBox="0 0 800 470" width="100%" style="display:block;min-width:560px;height:auto;" role="img" aria-label="도막 5개 층 단면 구조도">
+
+    <!-- ---- 층 띠 (아래에서 위로 쌓이는 순서) ---- -->
+    <!-- 05 클리어 -->
+    <rect x="40" y="120" width="400" height="50" fill="#dbe4ec" stroke="#b3c2d0" stroke-width="1"></rect>
+    <rect x="52" y="132" width="376" height="4" fill="#ffffff"></rect>
+    <!-- 04 베이스 컬러 -->
+    <rect x="40" y="170" width="400" height="40" fill="#2f6f9e"></rect>
+    <!-- 03 서페이서 (본 제품 · 강조) -->
+    <rect x="40" y="210" width="400" height="76" fill="#9aa0a6"></rect>
+    <rect x="40" y="210" width="400" height="76" fill="none" stroke="#e8541f" stroke-width="3"></rect>
+    <text x="240" y="255" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="17" font-weight="900" fill="#ffffff">서페이서 회색 520ml</text>
+    <!-- 02 퍼티 -->
+    <rect x="40" y="286" width="400" height="44" fill="#cfc6b8"></rect>
+    <!-- 01 소지 -->
+    <rect x="40" y="330" width="400" height="80" fill="#3a3f47"></rect>
+    <text x="240" y="378" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" fill="#8b9098">철판 · 플라스틱 소지</text>
+
+    <!-- ---- 우측 라벨 + 지시선 ---- -->
+    <!-- 05 클리어 -->
+    <line x1="444" y1="145" x2="474" y2="145" stroke="#c3bfb7" stroke-width="1"></line>
+    <text x="484" y="141" font-family="'IBM Plex Mono',monospace" font-size="11" letter-spacing="1.2" fill="#a39a8c">05</text>
+    <text x="516" y="141" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="16" font-weight="700" fill="#14161a">클리어</text>
+    <text x="516" y="162" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#6b6f77">광택과 표면 보호</text>
+
+    <!-- 04 베이스 -->
+    <line x1="444" y1="190" x2="474" y2="190" stroke="#c3bfb7" stroke-width="1"></line>
+    <text x="484" y="186" font-family="'IBM Plex Mono',monospace" font-size="11" letter-spacing="1.2" fill="#a39a8c">04</text>
+    <text x="516" y="186" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="16" font-weight="700" fill="#14161a">베이스 컬러</text>
+    <text x="516" y="207" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#6b6f77">차량 색상 도료</text>
+
+    <!-- 03 서페이서 (강조) -->
+    <line x1="444" y1="248" x2="474" y2="248" stroke="#e8541f" stroke-width="1.5"></line>
+    <text x="484" y="244" font-family="'IBM Plex Mono',monospace" font-size="11" letter-spacing="1.2" fill="#e8541f">03</text>
+    <text x="516" y="244" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="16" font-weight="900" fill="#e8541f">서페이서 · 본 제품</text>
+    <text x="516" y="265" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#6b6f77">굴곡 충진 · 밀착 · 색상 은폐</text>
+
+    <!-- 02 퍼티 -->
+    <line x1="444" y1="308" x2="474" y2="308" stroke="#c3bfb7" stroke-width="1"></line>
+    <text x="484" y="304" font-family="'IBM Plex Mono',monospace" font-size="11" letter-spacing="1.2" fill="#a39a8c">02</text>
+    <text x="516" y="304" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="16" font-weight="700" fill="#14161a">퍼티</text>
+    <text x="516" y="325" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#6b6f77">깊은 찌그러짐과 파임 성형</text>
+
+    <!-- 01 소지 -->
+    <line x1="444" y1="370" x2="474" y2="370" stroke="#c3bfb7" stroke-width="1"></line>
+    <text x="484" y="366" font-family="'IBM Plex Mono',monospace" font-size="11" letter-spacing="1.2" fill="#a39a8c">01</text>
+    <text x="516" y="366" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="16" font-weight="700" fill="#14161a">소지</text>
+    <text x="516" y="387" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#6b6f77">철판 · 플라스틱 · 구도막</text>
+
+    <!-- 하단 방향 표시 -->
+    <text x="40" y="446" font-family="'IBM Plex Mono',monospace" font-size="11" letter-spacing="1.4" fill="#a39a8c">↑ 도장 순서 : 아래에서 위로</text>
+
+  </svg>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     [IMG-02] 실제 도포 시연 컷
+     ※ 아래 div 를 <img src="..." style="display:block;width:100%;"> 로 교체
+========================================================================== -->
+<div style="position:relative;background:#eceae6;background-image:repeating-linear-gradient(135deg, rgba(20,22,26,0.03) 0 12px, rgba(20,22,26,0) 12px 24px);padding:clamp(56px,13vw,96px) clamp(20px,5vw,40px);text-align:center;border-top:1px solid #dedbd5;border-bottom:1px solid #dedbd5;">
+  <svg viewBox="0 0 64 64" width="44" height="44" fill="none" aria-hidden="true" style="display:block;margin:0 auto 18px;">
+    <rect x="6" y="16" width="52" height="38" rx="3" stroke="#b3aea4" stroke-width="2.5"></rect>
+    <path d="M22 16l4-6h12l4 6" stroke="#b3aea4" stroke-width="2.5" stroke-linejoin="round"></path>
+    <circle cx="32" cy="35" r="11" stroke="#e8541f" stroke-width="2.5"></circle>
+  </svg>
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.2em;color:#e8541f;margin-bottom:10px;">IMG-02</div>
+  <div style="font-size:14px;color:#6b6f77;line-height:1.7;">패널에 실제로 도포하는 장면<br><span style="font-size:12px;color:#8b8377;">권장 862 × 620px 이상 / 분사 궤적이 보이는 각도</span></div>
+</div>
+
+<!-- ==========================================================================
+     [S4] 사용 방법 STEP 01 ~ 06
+     - 실제 작업 순서이므로 번호(시퀀스)를 부여
+     - SPEC-CHECK : 사포 번수 / 거리 / 건조시간은 설명서 수치로 확정 필요
+========================================================================== -->
+<section style="background:#ffffff;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b8377;padding-bottom:14px;border-bottom:1px solid #d3d0ca;margin-bottom:clamp(26px,6vw,40px);">
+    04 &nbsp;—&nbsp; HOW TO USE
+  </div>
+
+  <h2 style="margin:0 0 clamp(30px,7vw,48px);font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#14161a;text-wrap:balance;">
+    여섯 단계면<br>끝납니다
+  </h2>
+
+  <!-- STEP 01 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(10px,3vw,28px);padding:clamp(22px,5vw,30px) 0;border-top:1px solid #14161a;">
+    <div style="flex:1 1 210px;min-width:0;">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.18em;color:#e8541f;margin-bottom:8px;">STEP 01</div>
+      <div style="font-weight:900;font-size:clamp(18px,4.2vw,23px);line-height:1.35;letter-spacing:-0.02em;color:#14161a;">표면 정리</div>
+      <div style="display:inline-block;margin-top:12px;padding:6px 11px;background:#f0eeea;font-family:'IBM Plex Mono',Consolas,monospace;font-size:12px;color:#4a4d53;">P320 ~ P400</div>
+    </div>
+    <div style="flex:2 1 300px;min-width:0;">
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#4a4d53;">
+        퍼티가 완전히 굳은 뒤 건식 샌딩으로 면을 잡습니다. 퍼티와 구도막이 만나는 경계는
+        손끝으로 문질렀을 때 단차가 느껴지지 않도록 넓게 페더에지(경사 연마)를 줍니다.
+        연마 가루는 에어건이나 마른 붓으로 완전히 털어냅니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- STEP 02 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(10px,3vw,28px);padding:clamp(22px,5vw,30px) 0;border-top:1px solid #e0ddd7;">
+    <div style="flex:1 1 210px;min-width:0;">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.18em;color:#e8541f;margin-bottom:8px;">STEP 02</div>
+      <div style="font-weight:900;font-size:clamp(18px,4.2vw,23px);line-height:1.35;letter-spacing:-0.02em;color:#14161a;">탈지</div>
+      <div style="display:inline-block;margin-top:12px;padding:6px 11px;background:#f0eeea;font-family:'IBM Plex Mono',Consolas,monospace;font-size:12px;color:#4a4d53;">탈지제 + 마른천</div>
+    </div>
+    <div style="flex:2 1 300px;min-width:0;">
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#4a4d53;">
+        탈지제를 적신 천으로 닦고, <strong style="font-weight:700;color:#14161a;">마르기 전에 다른 마른 천으로 한 번 더 닦아냅니다.</strong>
+        기름기와 손자국이 남으면 그 자리만 도료가 튕겨 나가 크레이터(오목한 자국)가 생깁니다.
+        도포 직전에 다시 한 번 하는 것이 가장 확실합니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- STEP 03 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(10px,3vw,28px);padding:clamp(22px,5vw,30px) 0;border-top:1px solid #e0ddd7;">
+    <div style="flex:1 1 210px;min-width:0;">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.18em;color:#e8541f;margin-bottom:8px;">STEP 03</div>
+      <div style="font-weight:900;font-size:clamp(18px,4.2vw,23px);line-height:1.35;letter-spacing:-0.02em;color:#14161a;">캔 흔들기</div>
+      <div style="display:inline-block;margin-top:12px;padding:6px 11px;background:#f0eeea;font-family:'IBM Plex Mono',Consolas,monospace;font-size:12px;color:#4a4d53;">1분 이상 / 20~25&deg;C</div>
+    </div>
+    <div style="flex:2 1 300px;min-width:0;">
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#4a4d53;">
+        안에서 볼 구르는 소리가 날 때까지, 그리고 그 뒤로도 <strong style="font-weight:700;color:#14161a;">최소 1분은 더</strong> 흔들어 줍니다.
+        가라앉은 안료가 덜 풀리면 색이 얼룩지고 충진력도 떨어집니다.
+        캔이 차가우면 미지근한 물에 잠시 담가 온도를 올려 주면 분사가 훨씬 곱게 나옵니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- STEP 04 : 핵심 단계 - 배경 강조 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(10px,3vw,28px);padding:clamp(22px,5vw,30px);margin-top:0;background:#14161a;border-top:1px solid #14161a;">
+    <div style="flex:1 1 210px;min-width:0;">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.18em;color:#e8541f;margin-bottom:8px;">STEP 04 &nbsp;&#9733; 핵심</div>
+      <div style="font-weight:900;font-size:clamp(18px,4.2vw,23px);line-height:1.35;letter-spacing:-0.02em;color:#f4f2ef;">연속 3회 도포</div>
+      <div style="display:inline-block;margin-top:12px;padding:6px 11px;background:#e8541f;font-family:'IBM Plex Mono',Consolas,monospace;font-size:12px;color:#ffffff;">25~30cm / 3회 / 대기 0분</div>
+    </div>
+    <div style="flex:2 1 300px;min-width:0;">
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#a4a8af;">
+        면에서 25~30cm를 띄우고, 캔을 든 팔 전체를 평행하게 움직이며 뿌립니다.
+        손목만 돌리면 가운데만 두껍고 양끝이 얇아집니다. 한 줄을 뿌렸으면
+        <strong style="color:#f4f2ef;font-weight:700;">직전 줄을 절반쯤 덮으며</strong> 다음 줄을 겹칩니다.
+        <br><br>
+        1회차는 얇게 깔아주는 느낌으로, 2·3회차에서 도막을 올립니다.
+        <strong style="color:#e8541f;font-weight:700;">회차 사이에 기다릴 필요가 없으니</strong> 그대로 이어서 진행하세요.
+        한 번에 두껍게 몰아 뿌리면 흘러내립니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- [GRAPHIC-03] 도포 거리 + 겹침 패턴 다이어그램 (STEP 04 부속) -->
+  <div style="background:#1b1d22;padding:clamp(28px,6vw,44px) clamp(14px,4vw,30px);">
+    <div style="overflow-x:auto;">
+    <svg viewBox="0 0 800 330" width="100%" style="display:block;min-width:560px;height:auto;" role="img" aria-label="도포 거리 25~30cm와 50퍼센트 겹침 패턴 안내도">
+
+      <!-- ===== 좌측 : 도포 거리 ===== -->
+      <text x="20" y="24" font-family="'IBM Plex Mono',monospace" font-size="12" letter-spacing="1.4" fill="#8b9098">도포 거리</text>
+
+      <!-- 스프레이 캔 -->
+      <rect x="52" y="120" width="54" height="120" rx="4" fill="#c9ccd0"></rect>
+      <rect x="52" y="150" width="54" height="52" fill="#9aa0a6"></rect>
+      <rect x="64" y="100" width="30" height="20" fill="#8b9098"></rect>
+      <rect x="72" y="88" width="14" height="12" fill="#e8541f"></rect>
+      <!-- 노즐에서 나가는 분무 (부채꼴) -->
+      <path d="M100 94 L360 44 L360 160 Z" fill="#9aa0a6" opacity="0.30"></path>
+      <path d="M100 94 L360 70 L360 134 Z" fill="#9aa0a6" opacity="0.35"></path>
+      <!-- 도장 대상 패널 (측면) -->
+      <rect x="360" y="30" width="22" height="180" fill="#3a3f47"></rect>
+      <rect x="360" y="44" width="6" height="116" fill="#9aa0a6"></rect>
+      <text x="371" y="228" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#8b9098">패널</text>
+
+      <!-- 치수선 -->
+      <line x1="100" y1="268" x2="360" y2="268" stroke="#e8541f" stroke-width="1.5"></line>
+      <path d="M100 268 L110 263 L110 273 Z" fill="#e8541f"></path>
+      <path d="M360 268 L350 263 L350 273 Z" fill="#e8541f"></path>
+      <line x1="100" y1="248" x2="100" y2="278" stroke="#e8541f" stroke-width="1"></line>
+      <line x1="360" y1="218" x2="360" y2="278" stroke="#e8541f" stroke-width="1"></line>
+      <text x="230" y="296" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="16" font-weight="600" fill="#e8541f">25 ~ 30 cm</text>
+      <text x="230" y="318" text-anchor="middle" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="12" fill="#7d838b">가까우면 흐르고, 멀면 거칠어집니다</text>
+
+      <!-- ===== 우측 : 겹침 패턴 ===== -->
+      <text x="480" y="24" font-family="'IBM Plex Mono',monospace" font-size="12" letter-spacing="1.4" fill="#8b9098">겹침 패턴</text>
+
+      <!-- 겹쳐 뿌리는 4개 줄 (아래로 갈수록 1/2씩 겹침) -->
+      <rect x="480" y="60" width="290" height="44" fill="#9aa0a6" fill-opacity="0.5" stroke="#c9ccd0" stroke-width="1" stroke-opacity="0.7"></rect>
+      <rect x="480" y="82" width="290" height="44" fill="#9aa0a6" fill-opacity="0.5" stroke="#c9ccd0" stroke-width="1" stroke-opacity="0.7"></rect>
+      <rect x="480" y="104" width="290" height="44" fill="#9aa0a6" fill-opacity="0.5" stroke="#c9ccd0" stroke-width="1" stroke-opacity="0.7"></rect>
+      <rect x="480" y="126" width="290" height="44" fill="#9aa0a6" fill-opacity="0.5" stroke="#c9ccd0" stroke-width="1" stroke-opacity="0.7"></rect>
+      <!-- 진행 방향 화살표 -->
+      <line x1="492" y1="82" x2="758" y2="82" stroke="#e8541f" stroke-width="1.5"></line>
+      <path d="M758 82 L748 77 L748 87 Z" fill="#e8541f"></path>
+      <line x1="758" y1="104" x2="492" y2="104" stroke="#e8541f" stroke-width="1.5"></line>
+      <path d="M492 104 L502 99 L502 109 Z" fill="#e8541f"></path>
+      <line x1="492" y1="126" x2="758" y2="126" stroke="#e8541f" stroke-width="1.5"></line>
+      <path d="M758 126 L748 121 L748 131 Z" fill="#e8541f"></path>
+      <!-- 겹침 폭 표시 -->
+      <line x1="440" y1="82" x2="440" y2="104" stroke="#e8541f" stroke-width="1.5"></line>
+      <path d="M440 82 L435 92 L445 92 Z" fill="#e8541f"></path>
+      <path d="M440 104 L435 94 L445 94 Z" fill="#e8541f"></path>
+      <text x="428" y="99" text-anchor="end" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="600" fill="#e8541f">1/2</text>
+
+      <text x="480" y="200" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="14" font-weight="700" fill="#f4f2ef">직전 줄을 절반 덮으며 진행</text>
+      <text x="480" y="224" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#8b9098">겹치지 않으면 줄무늬가 남고,</text>
+      <text x="480" y="246" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#8b9098">너무 겹치면 그 줄만 흘러내립니다.</text>
+      <text x="480" y="288" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#8b9098">면 밖에서 분사를 시작해</text>
+      <text x="480" y="310" font-family="'Gothic A1','Malgun Gothic',sans-serif" font-size="13" fill="#8b9098">면 밖에서 손가락을 떼세요.</text>
+
+    </svg>
+    </div>
+  </div>
+
+  <!-- STEP 05 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(10px,3vw,28px);padding:clamp(22px,5vw,30px) 0;border-top:1px solid #e0ddd7;">
+    <div style="flex:1 1 210px;min-width:0;">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.18em;color:#e8541f;margin-bottom:8px;">STEP 05</div>
+      <div style="font-weight:900;font-size:clamp(18px,4.2vw,23px);line-height:1.35;letter-spacing:-0.02em;color:#14161a;">건조</div>
+      <div style="display:inline-block;margin-top:12px;padding:6px 11px;background:#f0eeea;font-family:'IBM Plex Mono',Consolas,monospace;font-size:12px;color:#4a4d53;">상온 20 ~ 30분</div>
+    </div>
+    <div style="flex:2 1 300px;min-width:0;">
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#4a4d53;">
+        속건형이라 상온에서도 빠르게 마릅니다. 다만 <strong style="font-weight:700;color:#14161a;">기온이 낮거나 도막이 두꺼우면 시간이 늘어납니다.</strong>
+        눈에 띄지 않는 가장자리를 손톱으로 살짝 눌러 자국이 남지 않으면 연마해도 좋습니다.
+        덜 마른 상태에서 갈면 사포 눈이 바로 막힙니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- STEP 06 -->
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(10px,3vw,28px);padding:clamp(22px,5vw,30px) 0;border-top:1px solid #e0ddd7;border-bottom:1px solid #14161a;">
+    <div style="flex:1 1 210px;min-width:0;">
+      <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.18em;color:#e8541f;margin-bottom:8px;">STEP 06</div>
+      <div style="font-weight:900;font-size:clamp(18px,4.2vw,23px);line-height:1.35;letter-spacing:-0.02em;color:#14161a;">연마 후 상도</div>
+      <div style="display:inline-block;margin-top:12px;padding:6px 11px;background:#f0eeea;font-family:'IBM Plex Mono',Consolas,monospace;font-size:12px;color:#4a4d53;">P800 ~ P1000 습식</div>
+    </div>
+    <div style="flex:2 1 300px;min-width:0;">
+      <p style="margin:0;font-size:clamp(14px,3.4vw,16px);line-height:1.9;color:#4a4d53;">
+        물을 묻혀 가며 면을 평탄하게 갈아냅니다. 물기를 완전히 말리고 다시 탈지한 뒤
+        베이스 컬러를 올리면 됩니다. 이때 <strong style="font-weight:700;color:#14161a;">서페이서를 너무 많이 갈아 퍼티나 소지가 다시 드러났다면</strong>
+        그 부분만 다시 뿌려 채워 주세요.
+      </p>
+    </div>
+  </div>
+
+</section>
+
+<!-- ==========================================================================
+     [IMG-03] 시공 전 / 후 비교 사진
+     ※ 아래 div 를 <img src="..." style="display:block;width:100%;"> 로 교체
+========================================================================== -->
+<div style="position:relative;background:#eceae6;background-image:repeating-linear-gradient(135deg, rgba(20,22,26,0.03) 0 12px, rgba(20,22,26,0) 12px 24px);padding:clamp(56px,13vw,96px) clamp(20px,5vw,40px);text-align:center;border-bottom:1px solid #dedbd5;">
+  <svg viewBox="0 0 64 64" width="44" height="44" fill="none" aria-hidden="true" style="display:block;margin:0 auto 18px;">
+    <rect x="6" y="16" width="52" height="38" rx="3" stroke="#b3aea4" stroke-width="2.5"></rect>
+    <path d="M22 16l4-6h12l4 6" stroke="#b3aea4" stroke-width="2.5" stroke-linejoin="round"></path>
+    <circle cx="32" cy="35" r="11" stroke="#e8541f" stroke-width="2.5"></circle>
+  </svg>
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.2em;color:#e8541f;margin-bottom:10px;">IMG-03</div>
+  <div style="font-size:14px;color:#6b6f77;line-height:1.7;">퍼티면 → 서페이서 도포 후 비교컷<br><span style="font-size:12px;color:#8b8377;">권장 862 × 620px 이상 / 좌우 분할 또는 상하 분할</span></div>
+</div>
+
+<!-- ==========================================================================
+     [S5] 적용 가능 소재
+========================================================================== -->
+<section style="background:#ffffff;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b8377;padding-bottom:14px;border-bottom:1px solid #d3d0ca;margin-bottom:clamp(26px,6vw,40px);">
+    05 &nbsp;—&nbsp; SUBSTRATES
+  </div>
+
+  <h2 style="margin:0 0 clamp(26px,6vw,38px);font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#14161a;">
+    어디에 쓸 수 있나요
+  </h2>
+
+  <!-- 적용 가능 -->
+  <div style="margin-bottom:clamp(24px,5vw,32px);">
+    <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.16em;color:#2f7a4f;margin-bottom:14px;">&#10003;&nbsp; 바로 도포 가능</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="display:inline-block;padding:10px 16px;background:#f2f6f3;border-left:3px solid #2f7a4f;font-size:14px;font-weight:500;color:#14161a;">경화된 퍼티면</span>
+      <span style="display:inline-block;padding:10px 16px;background:#f2f6f3;border-left:3px solid #2f7a4f;font-size:14px;font-weight:500;color:#14161a;">연마된 구도막</span>
+      <span style="display:inline-block;padding:10px 16px;background:#f2f6f3;border-left:3px solid #2f7a4f;font-size:14px;font-weight:500;color:#14161a;">프라이머 처리된 철판</span>
+      <span style="display:inline-block;padding:10px 16px;background:#f2f6f3;border-left:3px solid #2f7a4f;font-size:14px;font-weight:500;color:#14161a;">프라모델 · 피규어</span>
+      <span style="display:inline-block;padding:10px 16px;background:#f2f6f3;border-left:3px solid #2f7a4f;font-size:14px;font-weight:500;color:#14161a;">가전 · 소품 리폼</span>
+    </div>
+  </div>
+
+  <!-- 선행 작업 필요 -->
+  <div>
+    <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.16em;color:#b8791a;margin-bottom:14px;">!&nbsp; 선행 작업이 필요한 면</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="display:inline-block;padding:10px 16px;background:#faf5ec;border-left:3px solid #b8791a;font-size:14px;font-weight:500;color:#14161a;">생소지 철판 &rarr; 방청 프라이머 먼저</span>
+      <span style="display:inline-block;padding:10px 16px;background:#faf5ec;border-left:3px solid #b8791a;font-size:14px;font-weight:500;color:#14161a;">미연마 신품 플라스틱 &rarr; 플라스틱 프라이머 먼저</span>
+      <span style="display:inline-block;padding:10px 16px;background:#faf5ec;border-left:3px solid #b8791a;font-size:14px;font-weight:500;color:#14161a;">알루미늄 · 아연도금 &rarr; 전용 프라이머 먼저</span>
+    </div>
+  </div>
+
+</section>
+
+<!-- ==========================================================================
+     [S6] 제품 규격표
+     - SPEC-CHECK : 도포면적 / 건조시간 / 권장온도는 설명서 수치로 확정 필요
+========================================================================== -->
+<section style="background:#14161a;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b9098;padding-bottom:14px;border-bottom:1px solid #32363d;margin-bottom:clamp(26px,6vw,40px);">
+    06 &nbsp;—&nbsp; SPECIFICATION
+  </div>
+
+  <h2 style="margin:0 0 clamp(26px,6vw,38px);font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#f4f2ef;">
+    제품 규격
+  </h2>
+
+  <!-- 규격 목록 : 라벨/값 정렬 -->
+  <div style="display:flex;flex-wrap:wrap;column-gap:clamp(22px,6vw,56px);row-gap:0;border-top:1px solid #3a3f47;">
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">제품명</span>
+      <span style="font-size:15px;font-weight:700;color:#f4f2ef;text-align:right;">서페이서 회색 520ml</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">종류</span>
+      <span style="font-size:15px;font-weight:700;color:#f4f2ef;text-align:right;">1액형 속건 프라이머 서페이서</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">용량</span>
+      <span style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:15px;font-weight:600;color:#f4f2ef;text-align:right;font-variant-numeric:tabular-nums;">520 ml</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">색상</span>
+      <span style="font-size:15px;font-weight:700;color:#f4f2ef;text-align:right;">회색 (GRAY)</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">형태</span>
+      <span style="font-size:15px;font-weight:700;color:#f4f2ef;text-align:right;">에어졸 스프레이</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">후레쉬타임</span>
+      <span style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:15px;font-weight:600;color:#e8541f;text-align:right;">불필요 (연속 도포)</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">권장 도포 횟수</span>
+      <span style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:15px;font-weight:600;color:#f4f2ef;text-align:right;font-variant-numeric:tabular-nums;">2 ~ 3 회</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">도포 거리</span>
+      <span style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:15px;font-weight:600;color:#f4f2ef;text-align:right;font-variant-numeric:tabular-nums;">25 ~ 30 cm</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">연마 가능 시점</span>
+      <span style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:15px;font-weight:600;color:#f4f2ef;text-align:right;font-variant-numeric:tabular-nums;">약 20 ~ 30 분 후</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">권장 작업 온도</span>
+      <span style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:15px;font-weight:600;color:#f4f2ef;text-align:right;font-variant-numeric:tabular-nums;">20 ~ 25 &deg;C</span>
+    </div>
+    <div style="flex:1 1 320px;padding:clamp(15px,3.4vw,19px) 0;border-bottom:1px solid #282c33;display:flex;justify-content:space-between;align-items:baseline;gap:16px;">
+      <span style="font-size:14px;color:#8b9098;">권장 연마</span>
+      <span style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:15px;font-weight:600;color:#f4f2ef;text-align:right;">P800 ~ P1000 습식</span>
+    </div>
+  </div>
+
+  <p style="margin:clamp(18px,4vw,24px) 0 0;font-size:12px;line-height:1.8;color:#6b7079;">
+    ※ 건조시간과 도포 횟수는 작업 온도, 습도, 도막 두께에 따라 달라질 수 있습니다.
+  </p>
+
+</section>
+
+<!-- ==========================================================================
+     [IMG-04] 사용 씬 컷
+     ※ 아래 div 를 <img src="..." style="display:block;width:100%;"> 로 교체
+========================================================================== -->
+<div style="position:relative;background:#1b1d22;background-image:repeating-linear-gradient(135deg, rgba(255,255,255,0.022) 0 12px, rgba(255,255,255,0) 12px 24px);padding:clamp(56px,13vw,96px) clamp(20px,5vw,40px);text-align:center;">
+  <svg viewBox="0 0 64 64" width="44" height="44" fill="none" aria-hidden="true" style="display:block;margin:0 auto 18px;">
+    <rect x="6" y="16" width="52" height="38" rx="3" stroke="#5c6169" stroke-width="2.5"></rect>
+    <path d="M22 16l4-6h12l4 6" stroke="#5c6169" stroke-width="2.5" stroke-linejoin="round"></path>
+    <circle cx="32" cy="35" r="11" stroke="#e8541f" stroke-width="2.5"></circle>
+  </svg>
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.2em;color:#e8541f;margin-bottom:10px;">IMG-04</div>
+  <div style="font-size:14px;color:#8e939b;line-height:1.7;">작업 현장 · 사용 씬<br><span style="font-size:12px;color:#6b7079;">권장 862 × 620px 이상 / 범퍼 보수 또는 프라모델 작업</span></div>
+</div>
+
+<!-- ==========================================================================
+     [S7] 이런 분께 권합니다
+========================================================================== -->
+<section style="background:#eceae6;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b8377;padding-bottom:14px;border-bottom:1px solid #d3d0ca;margin-bottom:clamp(26px,6vw,40px);">
+    07 &nbsp;—&nbsp; FOR WHOM
+  </div>
+
+  <h2 style="margin:0 0 clamp(26px,6vw,40px);font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#14161a;">
+    이런 분께 권합니다
+  </h2>
+
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(12px,3vw,18px);">
+    <div style="flex:1 1 240px;background:#ffffff;padding:clamp(22px,5vw,28px);border-top:3px solid #14161a;">
+      <div style="font-weight:900;font-size:17px;color:#14161a;margin-bottom:8px;letter-spacing:-0.01em;">범퍼 · 도어를 직접 보수하는 분</div>
+      <div style="font-size:14px;line-height:1.85;color:#6b6f77;">긁힘 한 곳 때문에 공업사에 맡기기는 아까운, 부분 보수 작업에 딱 맞는 용량입니다.</div>
+    </div>
+    <div style="flex:1 1 240px;background:#ffffff;padding:clamp(22px,5vw,28px);border-top:3px solid #14161a;">
+      <div style="font-weight:900;font-size:17px;color:#14161a;margin-bottom:8px;letter-spacing:-0.01em;">자가 도색이 처음인 분</div>
+      <div style="font-size:14px;line-height:1.85;color:#6b6f77;">경화제를 섞을 일도, 비율을 맞출 일도 없습니다. 흔들고 뿌리는 것이 전부입니다.</div>
+    </div>
+    <div style="flex:1 1 240px;background:#ffffff;padding:clamp(22px,5vw,28px);border-top:3px solid #14161a;">
+      <div style="font-weight:900;font-size:17px;color:#14161a;margin-bottom:8px;letter-spacing:-0.01em;">프라모델 · 피규어 도색가</div>
+      <div style="font-size:14px;line-height:1.85;color:#6b6f77;">파팅라인과 퍼티 자국을 정리하고, 상도 발색을 고르게 잡아 주는 그레이 하도입니다.</div>
+    </div>
+    <div style="flex:1 1 240px;background:#ffffff;padding:clamp(22px,5vw,28px);border-top:3px solid #e8541f;">
+      <div style="font-weight:900;font-size:17px;color:#14161a;margin-bottom:8px;letter-spacing:-0.01em;">시간이 곧 비용인 전문가</div>
+      <div style="font-size:14px;line-height:1.85;color:#6b6f77;">건 세척도, 회차 간 대기도 없습니다. 소량 보수 건에서 회전율이 확실히 달라집니다.</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ==========================================================================
+     [S8] 사용 전 주의사항 (경고 톤)
+========================================================================== -->
+<section style="background:#ffffff;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#e8541f;padding-bottom:14px;border-bottom:2px solid #e8541f;margin-bottom:clamp(26px,6vw,40px);">
+    08 &nbsp;—&nbsp; SAFETY &amp; CAUTION
+  </div>
+
+  <h2 style="margin:0 0 clamp(24px,5vw,34px);font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#14161a;">
+    반드시 읽어 주세요
+  </h2>
+
+  <!-- 주의 항목 : 좌측 오렌지 바 -->
+  <div style="display:flex;flex-direction:column;gap:2px;">
+    <div style="padding:clamp(16px,3.6vw,20px) clamp(16px,3.6vw,22px);background:#fbf4f1;border-left:4px solid #e8541f;">
+      <div style="font-weight:700;font-size:15px;color:#14161a;margin-bottom:5px;">화기 엄금</div>
+      <div style="font-size:14px;line-height:1.8;color:#5a5e66;">가연성 제품입니다. 불꽃, 담배, 스파크가 발생하는 장소에서는 절대 사용하지 마세요.</div>
+    </div>
+    <div style="padding:clamp(16px,3.6vw,20px) clamp(16px,3.6vw,22px);background:#fbf4f1;border-left:4px solid #e8541f;">
+      <div style="font-weight:700;font-size:15px;color:#14161a;margin-bottom:5px;">반드시 환기되는 곳에서</div>
+      <div style="font-size:14px;line-height:1.8;color:#5a5e66;">밀폐된 실내나 지하 주차장에서는 사용하지 마세요. 방독마스크, 보안경, 장갑을 착용하세요.</div>
+    </div>
+    <div style="padding:clamp(16px,3.6vw,20px) clamp(16px,3.6vw,22px);background:#fbf4f1;border-left:4px solid #e8541f;">
+      <div style="font-weight:700;font-size:15px;color:#14161a;margin-bottom:5px;">주변 마스킹은 넉넉하게</div>
+      <div style="font-size:14px;line-height:1.8;color:#5a5e66;">미세한 분진이 생각보다 멀리 날립니다. 유리, 몰딩, 옆 패널까지 충분히 가려 주세요.</div>
+    </div>
+    <div style="padding:clamp(16px,3.6vw,20px) clamp(16px,3.6vw,22px);background:#fbf4f1;border-left:4px solid #e8541f;">
+      <div style="font-weight:700;font-size:15px;color:#14161a;margin-bottom:5px;">보관은 서늘한 곳에</div>
+      <div style="font-size:14px;line-height:1.8;color:#5a5e66;">직사광선이 닿는 곳, 40&deg;C 이상의 차량 실내에 두지 마세요. 어린이 손이 닿지 않는 곳에 보관합니다.</div>
+    </div>
+    <div style="padding:clamp(16px,3.6vw,20px) clamp(16px,3.6vw,22px);background:#fbf4f1;border-left:4px solid #e8541f;">
+      <div style="font-weight:700;font-size:15px;color:#14161a;margin-bottom:5px;">캔을 뚫거나 태우지 마세요</div>
+      <div style="font-size:14px;line-height:1.8;color:#5a5e66;">다 쓴 캔도 내부 압력이 남아 있습니다. 가스를 완전히 뺀 뒤 지자체 기준에 따라 배출하세요.</div>
+    </div>
+    <div style="padding:clamp(16px,3.6vw,20px) clamp(16px,3.6vw,22px);background:#fbf4f1;border-left:4px solid #e8541f;">
+      <div style="font-weight:700;font-size:15px;color:#14161a;margin-bottom:5px;">사용 후에는 노즐 청소</div>
+      <div style="font-size:14px;line-height:1.8;color:#5a5e66;">캔을 거꾸로 들고 맑은 가스만 나올 때까지 2~3초 분사하면 다음에도 막히지 않습니다.</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ==========================================================================
+     [S9] 자주 묻는 질문
+========================================================================== -->
+<section style="background:#f7f6f4;padding:clamp(56px,12vw,100px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b8377;padding-bottom:14px;border-bottom:1px solid #d3d0ca;margin-bottom:clamp(26px,6vw,40px);">
+    09 &nbsp;—&nbsp; FAQ
+  </div>
+
+  <h2 style="margin:0 0 clamp(24px,5vw,36px);font-weight:900;font-size:clamp(26px,6vw,44px);line-height:1.15;letter-spacing:-0.03em;color:#14161a;">
+    자주 묻는 질문
+  </h2>
+
+  <!-- Q1 -->
+  <div style="padding:clamp(22px,5vw,28px) 0;border-top:1px solid #dedbd5;">
+    <div style="font-weight:900;font-size:clamp(16px,3.8vw,19px);line-height:1.5;color:#14161a;margin-bottom:10px;letter-spacing:-0.015em;">
+      <span style="color:#e8541f;font-family:'Archivo',sans-serif;margin-right:9px;">Q.</span>정말 기다리지 않고 이어서 뿌려도 되나요?
+    </div>
+    <div style="font-size:15px;line-height:1.9;color:#4a4d53;padding-left:0;">
+      네, 회차 사이의 후레쉬타임 없이 연속 도포하도록 만들어진 제품입니다.
+      다만 <strong style="font-weight:700;color:#14161a;">한 번에 몰아서 두껍게 뿌리는 것과는 다릅니다.</strong>
+      매 회차를 고르게 얇게 얹으면서 3회를 이어 가는 방식으로 사용하세요.
+    </div>
+  </div>
+
+  <!-- Q2 -->
+  <div style="padding:clamp(22px,5vw,28px) 0;border-top:1px solid #dedbd5;">
+    <div style="font-weight:900;font-size:clamp(16px,3.8vw,19px);line-height:1.5;color:#14161a;margin-bottom:10px;letter-spacing:-0.015em;">
+      <span style="color:#e8541f;font-family:'Archivo',sans-serif;margin-right:9px;">Q.</span>퍼티 위에 바로 뿌려도 되나요?
+    </div>
+    <div style="font-size:15px;line-height:1.9;color:#4a4d53;">
+      퍼티가 완전히 경화되고 P320~P400으로 면을 잡은 뒤, 가루를 털고 탈지한 상태라면 바로 도포합니다.
+      덜 굳은 퍼티 위에 뿌리면 나중에 도막이 수축하면서 자국이 올라옵니다.
+    </div>
+  </div>
+
+  <!-- Q3 -->
+  <div style="padding:clamp(22px,5vw,28px) 0;border-top:1px solid #dedbd5;">
+    <div style="font-weight:900;font-size:clamp(16px,3.8vw,19px);line-height:1.5;color:#14161a;margin-bottom:10px;letter-spacing:-0.015em;">
+      <span style="color:#e8541f;font-family:'Archivo',sans-serif;margin-right:9px;">Q.</span>몇 번 뿌리는 게 적당한가요?
+    </div>
+    <div style="font-size:15px;line-height:1.9;color:#4a4d53;">
+      보통 2~3회입니다. 연마 여유를 남겨야 하므로 소지가 비쳐 보이지 않을 정도까지 올리되,
+      필요 이상으로 두껍게 쌓으면 건조가 느려지고 갈아내는 데 시간만 더 듭니다.
+    </div>
+  </div>
+
+  <!-- Q4 -->
+  <div style="padding:clamp(22px,5vw,28px) 0;border-top:1px solid #dedbd5;">
+    <div style="font-weight:900;font-size:clamp(16px,3.8vw,19px);line-height:1.5;color:#14161a;margin-bottom:10px;letter-spacing:-0.015em;">
+      <span style="color:#e8541f;font-family:'Archivo',sans-serif;margin-right:9px;">Q.</span>왜 하필 회색인가요?
+    </div>
+    <div style="font-size:15px;line-height:1.9;color:#4a4d53;">
+      회색은 대부분의 상도 색상 아래에서 가장 무난하게 발색을 잡아 주는 중간 하도색입니다.
+      아주 밝은 화이트 계열이나 노랑·빨강 같은 은폐가 약한 색을 올린다면 밝은 하도가 더 유리할 수 있습니다.
+    </div>
+  </div>
+
+  <!-- Q5 -->
+  <div style="padding:clamp(22px,5vw,28px) 0;border-top:1px solid #dedbd5;border-bottom:1px solid #dedbd5;">
+    <div style="font-weight:900;font-size:clamp(16px,3.8vw,19px);line-height:1.5;color:#14161a;margin-bottom:10px;letter-spacing:-0.015em;">
+      <span style="color:#e8541f;font-family:'Archivo',sans-serif;margin-right:9px;">Q.</span>노즐이 막혔어요.
+    </div>
+    <div style="font-size:15px;line-height:1.9;color:#4a4d53;">
+      캔을 거꾸로 들고 맑은 가스만 나올 때까지 분사하면 대부분 뚫립니다.
+      그래도 막혀 있다면 노즐을 빼서 신너에 잠시 담갔다가 물기를 완전히 말린 뒤 다시 끼워 주세요.
+      <strong style="font-weight:700;color:#14161a;">바늘이나 철사로 노즐 구멍을 넓히면</strong> 분사 패턴이 망가집니다.
+    </div>
+  </div>
+
+</section>
+
+<!-- ==========================================================================
+     [S10] 배송 / 교환 안내
+========================================================================== -->
+<section style="background:#14161a;padding:clamp(48px,10vw,80px) clamp(20px,5vw,56px);">
+
+  <div style="font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:0.2em;color:#8b9098;padding-bottom:14px;border-bottom:1px solid #32363d;margin-bottom:clamp(24px,5vw,34px);">
+    10 &nbsp;—&nbsp; SHIPPING &amp; RETURN
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:clamp(20px,5vw,40px);">
+    <div style="flex:1 1 260px;min-width:0;">
+      <div style="font-weight:900;font-size:18px;color:#f4f2ef;margin-bottom:12px;letter-spacing:-0.01em;">배송 안내</div>
+      <div style="font-size:14px;line-height:1.95;color:#a4a8af;">
+        평일 오후 2시 이전 결제 건은 당일 출고됩니다.<br>
+        에어졸 제품 특성상 <strong style="color:#e2e0dc;font-weight:600;">항공 배송이 불가</strong>하여
+        제주 및 도서산간 지역은 배송이 지연되거나 제한될 수 있습니다.
+      </div>
+    </div>
+    <div style="flex:1 1 260px;min-width:0;">
+      <div style="font-weight:900;font-size:18px;color:#f4f2ef;margin-bottom:12px;letter-spacing:-0.01em;">교환 · 반품</div>
+      <div style="font-size:14px;line-height:1.95;color:#a4a8af;">
+        미사용 · 미개봉 제품에 한해 수령 후 7일 이내 교환 및 반품이 가능합니다.<br>
+        <strong style="color:#e2e0dc;font-weight:600;">캔을 흔들거나 분사한 제품</strong>은 재판매가 어려워
+        교환 및 반품 처리가 불가한 점 양해 부탁드립니다.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:clamp(32px,7vw,48px);padding-top:clamp(20px,4vw,28px);border-top:1px solid #282c33;font-family:'IBM Plex Mono',Consolas,monospace;font-size:11px;letter-spacing:0.16em;color:#5c6169;">
+    EGENAUTO &nbsp;&middot;&nbsp; AUTOMOTIVE REFINISH
+  </div>
+
+</section>
+
+</div>
+<!-- ===== 상세페이지 끝 ===== -->
