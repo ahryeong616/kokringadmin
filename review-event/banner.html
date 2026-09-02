@@ -1,0 +1,142 @@
+<!--
+  ============================================================================
+  이젠오토(EGEN AUTO) 리뷰 이벤트 - 상세페이지 최상단 배너
+  ============================================================================
+  · 출력 규격 : 가로 860px 기준으로 조판하고, 렌더링 시 2배(1720px)로 캡처한다.
+  · 렌더 방법 : 같은 폴더의 build.sh 실행 (헤드리스 Chrome 스크린샷)
+  · 폰트      : Pretendard (build.sh가 시스템에 설치한 뒤 렌더링)
+  · 이미지    : assets/logo_trim.png(로고 여백 제거본),
+                assets/model_crop.png(모델 시트에서 잘라낸 상반신 3:4 컷)
+                → 두 파일 모두 build.sh가 원본에서 자동 생성한다.
+
+  [수정 가이드]
+  · 금액/문구만 바꿀 때는 아래 <body> 영역의 텍스트만 고치면 된다.
+  · 글자를 늘렸다면 build.sh의 "레이아웃 검증" 단계에서 OVERFLOW 경고가
+    뜨는지 반드시 확인할 것. 좌측 텍스트 컬럼의 가용 폭은 462px이다.
+  ============================================================================
+-->
+<meta charset="utf-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+/* 페이지 바깥은 마젠타로 칠해 둔다.
+   렌더링 후 "마젠타가 아닌 영역"만 잘라내면 배너 크기에 딱 맞게 재단된다. */
+html,body{background:#FF00FF}
+
+/* ── 배너 본체 ───────────────────────────────────────────────────────────── */
+.page{
+  width:860px;                       /* 상세페이지 표준 폭 */
+  background:#fff;
+  font-family:Pretendard,sans-serif;
+  color:#14212E;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── 1) 헤더 : 브랜드 로고 + 이벤트 라벨 ─────────────────────────────────── */
+.hd{display:flex;align-items:center;justify-content:space-between;padding:28px 46px 22px}
+.hd img{height:30px}                 /* 로고는 헤더에서 작게. 원본 비율 유지 */
+.hd .tag{font-size:13px;font-weight:800;letter-spacing:3.5px;color:#1668B0}
+
+/* ── 2) 히어로 : 핵심 카피 + 모델 ────────────────────────────────────────── */
+/*    브랜드 로고의 블루 계열을 그대로 그라디언트로 확장했다. */
+.hero{
+  position:relative;display:flex;align-items:center;gap:34px;
+  padding:44px 46px 46px;
+  background:linear-gradient(118deg,#0A3D6B,#12588F 52%,#1E7CC0);
+  overflow:hidden;
+}
+/* 우측 상단에 은은한 원형 하이라이트 - 단조로운 배경에 깊이를 준다 */
+.hero::after{
+  content:"";position:absolute;right:-90px;top:-110px;
+  width:340px;height:340px;border-radius:50%;background:rgba(255,255,255,.06);
+}
+
+.L{flex:1;position:relative;z-index:2}   /* 좌측 텍스트 컬럼 (가용 폭 462px) */
+
+.stars{font-size:15px;letter-spacing:4px;color:#FFD233}
+.h1{margin-top:12px;font-size:36px;font-weight:500;color:rgba(255,255,255,.9);white-space:nowrap}
+.h2{margin-top:3px;font-size:57px;font-weight:800;color:#fff;letter-spacing:-2px;line-height:1.14;white-space:nowrap}
+
+/* 즉시 지급액은 흰 알약 배지로 감싸 시선을 한 번 끊어준다 */
+.pill{display:inline-block;margin-top:24px;padding:9px 20px;border-radius:99px;
+      background:#fff;font-size:15px;font-weight:800;color:#0A3D6B;white-space:nowrap}
+
+.h3{margin-top:20px;font-size:19px;font-weight:500;color:rgba(255,255,255,.82);white-space:nowrap}
+/* 최대 지급액 - 이 배너에서 가장 크고 강한 요소(포인트 옐로우) */
+.big{margin-top:1px;font-size:92px;font-weight:900;color:#FFD233;letter-spacing:-4px;line-height:1.05;white-space:nowrap}
+
+/* 모델 카드 : 배너 폭의 약 32%로 억제해 카피를 가리지 않게 한다 */
+.R{position:relative;z-index:2;width:272px;height:378px;border-radius:26px;
+   overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.28)}
+/* object-position을 위쪽(12%)으로 당겨 얼굴이 카드 중앙에 오도록 맞춘다 */
+.R img{width:100%;height:100%;object-fit:cover;object-position:50% 12%}
+
+/* ── 3) 리워드 3단 카드 ──────────────────────────────────────────────────── */
+.rw{display:flex;gap:14px;padding:36px 46px 34px}
+.c{flex:1;border:1.5px solid #E3EAF1;border-radius:18px;padding:20px 14px 18px;text-align:center}
+.c.on{border:2px solid #1668B0;background:#F2F8FD}   /* 1번 카드(즉시 지급)만 강조 */
+.c .k{display:inline-block;padding:5px 12px;border-radius:99px;background:#EDF3F9;
+      font-size:12px;font-weight:800;color:#1668B0;white-space:nowrap}
+.c.on .k{background:#1668B0;color:#fff}
+.c .t{margin-top:11px;font-size:14px;font-weight:500;color:#68788A;white-space:nowrap}
+.c .v{margin-top:5px;font-size:33px;font-weight:900;color:#0A3D6B;letter-spacing:-1.4px;white-space:nowrap}
+.c .s{margin-top:8px;font-size:12px;font-weight:700;color:#1668B0;white-space:nowrap}
+
+/* ── 4) 하단 : 후기 선정 대상 사이트 안내 ────────────────────────────────── */
+.wh{background:#F4F7FA;padding:24px 46px 28px;text-align:center}
+.wh .q{font-size:15px;font-weight:700}
+.wh .row{margin-top:12px;display:flex;justify-content:center;gap:8px}
+.wh .chip{padding:8px 14px;border-radius:10px;background:#fff;border:1px solid #E3EAF1;
+          font-size:13px;font-weight:500;color:#42525F;white-space:nowrap}
+.wh .n{margin-top:14px;font-size:13px;font-weight:700;color:#8493A1}
+</style>
+
+<div class="page">
+
+  <!-- 헤더 -->
+  <div class="hd">
+    <img src="assets/logo_trim.png" alt="EGEN AUTO">
+    <div class="tag">REVIEW EVENT</div>
+  </div>
+
+  <!-- 히어로 -->
+  <div class="hero">
+    <div class="L">
+      <div class="stars">★★★★★</div>
+      <div class="h1">사진 한 장이면</div>
+      <div class="h2">후기가 돈이 됩니다</div>
+      <div class="pill">쓰는 즉시 150원</div>
+      <div class="h3">잘 쓰면 한 건으로 최대</div>
+      <div class="big">15,150원</div>
+    </div>
+    <div class="R"><img src="assets/model_crop.png" alt=""></div>
+  </div>
+
+  <!-- 리워드 3단 -->
+  <div class="rw">
+    <div class="c on">
+      <div class="k">쓰는 즉시</div><div class="t">남기신 모든 분</div>
+      <div class="v">150원</div><div class="s">사진 1장 + 세 줄</div>
+    </div>
+    <div class="c">
+      <div class="k">매주 금요일</div><div class="t">14분</div>
+      <div class="v">~5,000원</div>
+    </div>
+    <div class="c">
+      <div class="k">매월 첫째 주</div><div class="t">이달의 후기 3분</div>
+      <div class="v">10,000원</div>
+    </div>
+  </div>
+
+  <!-- 참여처 안내 -->
+  <div class="wh">
+    <div class="q">아래 사이트에 남긴 후기에서 선정합니다</div>
+    <div class="row">
+      <div class="chip">자사몰 이젠몰 · 이젠오토몰</div>
+      <div class="chip">스마트스토어 이젠몰 · 이젠오토몰</div>
+      <div class="chip">네이버페이 이젠몰 · 이젠오토몰</div>
+    </div>
+    <div class="n">자세한 내용은 맨 아래에 ↓</div>
+  </div>
+
+</div>
