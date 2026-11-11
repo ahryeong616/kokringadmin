@@ -9,6 +9,9 @@ let editingPurchaseId = '';
 let editingCostId = '';
 let editingProductId = '';
 let editingSaleId = '';
+let salesPage = 1;
+let salesPageSize = 20;
+let salesFilterSignature = '';
 let saleFilters = { productId: '', from: '', to: '', q: '' };
 let purchaseFilters = { productId: '', from: '', to: '', q: '' };
 let costFilters = { category: '', from: '', to: '', q: '' };
@@ -608,15 +611,29 @@ function renderCosts() {
 function renderSales() {
   const { statsMap } = totals();
   fillSaleFilterProduct();
-  const filtered = state.sales.filter(saleMatchesFilter);
+  const signature = JSON.stringify(saleFilters);
+  if (signature !== salesFilterSignature) { salesPage = 1; salesFilterSignature = signature; }
+  const filtered = state.sales.filter(saleMatchesFilter).reverse().sort((a, b) => b.date.localeCompare(a.date));
+  const pages = Math.max(1, Math.ceil(filtered.length / salesPageSize));
+  salesPage = Math.max(1, Math.min(salesPage, pages));
+  const start = (salesPage - 1) * salesPageSize;
   const isFiltered = filtered.length !== state.sales.length;
   $('#saleCount').textContent = isFiltered ? `${filtered.length}건 / 전체 ${state.sales.length}건` : `${state.sales.length}건`;
   $('#salesCount').textContent = `${state.sales.length}건`;
-  $('#saleRows').innerHTML = filtered.length ? filtered.map((s) => {
+  $('#saleRows').innerHTML = filtered.length ? filtered.slice(start, start + salesPageSize).map((s) => {
     if (String(s.id) === String(editingSaleId)) return renderSaleEditRow(s);
     const r = saleResult(s, statsMap);
     return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${escapeHtml(s.orderNo || '-')}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.netRevenue)}</td><td class="${r.profit < 0 ? 'money-bad' : ''}">${money(r.profit)}</td><td>${saleActionButtons(s.id)}</td></tr>`;
   }).join('') : emptyRow(7, state.sales.length ? '조건에 맞는 판매 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
+  $$('.sales-pagination').forEach((nav) => {
+    nav.innerHTML = `<span role="status">총 ${number(filtered.length)}건 · ${filtered.length ? start + 1 : 0}–${Math.min(start + salesPageSize, filtered.length)}건 · 최신순</span>
+      <label>표시 건수 <select data-sales-page-size aria-label="판매 내역 표시 건수">${[20, 50, 100].map(size => `<option value="${size}" ${size === salesPageSize ? 'selected' : ''}>${size}건</option>`).join('')}</select></label>
+      <div class="sales-page-buttons"><button type="button" class="ghost-button" data-sales-page="1" ${salesPage === 1 ? 'disabled' : ''}>처음</button>
+      <button type="button" class="ghost-button" data-sales-page="${salesPage - 1}" ${salesPage === 1 ? 'disabled' : ''}>이전</button>
+      <span>${salesPage} / ${pages} 페이지</span>
+      <button type="button" class="ghost-button" data-sales-page="${salesPage + 1}" ${salesPage === pages ? 'disabled' : ''}>다음</button>
+      <button type="button" class="ghost-button" data-sales-page="${pages}" ${salesPage === pages ? 'disabled' : ''}>마지막</button></div>`;
+  });
   const recent = [...state.sales].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   $('#recentSalesRows').innerHTML = recent.length ? recent.map((s) => { const r = saleResult(s, statsMap); return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.profit)}</td></tr>`; }).join('') : emptyRow(4);
 }
@@ -643,6 +660,26 @@ function bindForms() { $$('form input[type="date"]').forEach((input) => { input.
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
+  document.body.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-sales-page]');
+    if (!button || button.disabled) return;
+    editingSaleId = '';
+    salesPage = Number(button.dataset.salesPage);
+    renderSales();
+    document.querySelector('.sales-pagination').scrollIntoView({ block: 'start' });
+  });
+  document.body.addEventListener('change', (event) => {
+    if (!event.target.matches('[data-sales-page-size]')) return;
+    const size = Number(event.target.value);
+    if (![20, 50, 100].includes(size)) return;
+    editingSaleId = '';
+    salesPageSize = size;
+    salesPage = 1;
+    renderSales();
+    document.querySelector('.sales-pagination').scrollIntoView({ block: 'start' });
+  });
+
+
   $('#saveData').addEventListener('click', async () => { try { applyState(await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ defaultRate: toNum($('#defaultRate').value) || 190 }) })); } catch (err) { alert(err.message); } });
   $('#defaultRate').addEventListener('change', async () => { try { applyState(await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ defaultRate: toNum($('#defaultRate').value) || 190 }) })); } catch (err) { alert(err.message); } });
   $('#refreshData').addEventListener('click', () => loadRemote(true));
