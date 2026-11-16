@@ -157,6 +157,12 @@
       <section id="purchaseSummary" class="view">
         <section class="panel">
           <div class="panel-header"><h3>상품별 입고 요약</h3><span>같은 상품의 날짜별 입고 수량을 한눈에 봅니다.</span></div>
+          <div class="filter-bar">
+            <select id="summaryCategory" aria-label="입고요약 분류 필터"><option value="">전체 분류</option></select>
+            <input id="summaryQuery" type="search" placeholder="상품명·코드 검색" aria-label="입고요약 상품 검색">
+            <select id="summarySort" aria-label="입고요약 정렬"><option value="quantity-desc">입고수량 많은순</option><option value="quantity-asc">입고수량 적은순</option><option value="count-desc">입고횟수 많은순</option><option value="count-asc">입고횟수 적은순</option><option value="name">상품명순</option><option value="category">분류순</option></select>
+            <button id="summaryReset" type="button" class="ghost-button">필터 초기화</button>
+          </div>
           <div class="table-wrap"><table><thead><tr><th>상품</th><th>총 입고</th><th>입고 횟수</th><th>날짜별 입고 수량</th></tr></thead><tbody id="purchaseSummaryRows"></tbody></table></div>
         </section>
       </section>
@@ -249,6 +255,7 @@
             <select id="invFilterCategory" aria-label="분류 필터"><option value="">전체 분류</option></select>
             <select id="invFilterStatus" aria-label="재고 상태"><option value="">전체 재고</option><option value="low">재고부족·품절만</option><option value="ok">정상만</option></select>
             <input id="invFilterQuery" type="search" placeholder="상품명·코드 검색">
+            <select id="invSort" aria-label="재고 및 마진 정렬"><option value="category">분류순 (기본)</option><option value="stock-desc">재고 많은순</option><option value="stock-asc">재고 적은순</option><option value="purchasedQty-desc">입고수량 많은순</option><option value="soldQty-desc">판매수량 많은순</option><option value="margin-desc">예상 마진 높은순</option><option value="margin-asc">예상 마진 낮은순</option><option value="marginRate-desc">마진율 높은순</option><option value="marginRate-asc">마진율 낮은순</option><option value="inventoryValue-desc">재고금액 높은순</option><option value="inventoryValue-asc">재고금액 낮은순</option><option value="name">상품명순</option></select>
             <button id="invFilterReset" type="button" class="ghost-button">필터 초기화</button>
           </div>
           <div class="table-wrap"><table><thead><tr><th>상품</th><th>입고</th><th>판매</th><th>현재 재고</th><th>평균 원가</th><th>판매가</th><th>예상 마진</th><th>마진율</th><th>재고금액</th></tr></thead><tbody id="inventoryRows"></tbody></table></div>

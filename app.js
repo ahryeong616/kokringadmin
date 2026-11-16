@@ -20,6 +20,8 @@ let mergingProductId = '';
 const selectedProductIds = new Set();
 let dashboardPeriod = 'thisMonth';
 let selectedChartMonth = '';
+let summaryFilters = { category: '', q: '', sort: 'quantity-desc' };
+let inventorySort = 'category';
 let inventoryFilters = { category: '', status: '', q: '' };
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -575,19 +577,35 @@ function renderProducts() {
   updateBulkBar(list);
 }
 function shortDate(d) { const parts = String(d).split('-'); return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : d; }
+function summaryRecords() {
+  const byProduct = new Map();
+  state.purchases.forEach((p) => { if (!byProduct.has(p.productId)) byProduct.set(p.productId, []); byProduct.get(p.productId).push(p); });
+  const rows = state.products.filter((p) => byProduct.has(p.id)).map((product) => {
+    const items = byProduct.get(product.id).slice().sort((a, b) => a.date.localeCompare(b.date));
+    return { product, items, quantity: items.reduce((sum, item) => sum + toNum(item.quantity), 0), count: items.length };
+  }).filter(({product: p}) => (!summaryFilters.category || (summaryFilters.category === '(미분류)' ? !p.category : p.category === summaryFilters.category)) && `${p.code} ${p.name} ${p.option || ''}`.toLowerCase().includes(summaryFilters.q.trim().toLowerCase()));
+  return sortMetricRows(rows, summaryFilters.sort);
+}
+function sortMetricRows(rows, sort) {
+  const base = sortByCategory(rows, row => row.product);
+  if (sort === 'category') return base;
+  if (sort === 'name') return base.sort((a, b) => a.product.name.localeCompare(b.product.name, 'ko'));
+  const [field, direction] = sort.split('-');
+  const fields = ['quantity', 'count', 'stock', 'purchasedQty', 'soldQty', 'margin', 'marginRate', 'inventoryValue'];
+  if (!fields.includes(field) || !['asc', 'desc'].includes(direction)) return base;
+  return base.sort((a, b) => (toNum(a[field]) - toNum(b[field])) * (direction === 'asc' ? 1 : -1));
+}
+function sortedInventory() { return sortMetricRows(totals().stats.filter(inventoryMatchesFilter), inventorySort); }
 function renderPurchaseSummary() {
   const el = $('#purchaseSummaryRows');
   if (!el) return;
-  const byProduct = new Map();
-  state.purchases.forEach((p) => { if (!byProduct.has(p.productId)) byProduct.set(p.productId, []); byProduct.get(p.productId).push(p); });
-  const rows = state.products.filter((pr) => byProduct.has(pr.id)).map((pr) => {
-    const items = byProduct.get(pr.id).slice().sort((a, b) => a.date.localeCompare(b.date));
-    const total = items.reduce((s, x) => s + x.quantity, 0);
+  fillCategorySelect($('#summaryCategory'), summaryFilters.category);
+  const records = summaryRecords();
+  el.innerHTML = records.length ? records.map(({product: pr, items, quantity}) => {
     const chips = items.map((x) => `<span class="date-chip">${shortDate(x.date)} · ${number(x.quantity)}개</span>`).join('');
     const catTag = pr.category ? ` <span class="mini-tag cat">${escapeHtml(pr.category)}</span>` : '';
-    return `<tr><td><strong>${escapeHtml(pr.name)}${catTag}</strong><small>${escapeHtml(pr.option || '-')}</small></td><td><strong>${number(total)}개</strong></td><td>${items.length}회</td><td><div class="date-chips">${chips}</div></td></tr>`;
-  });
-  el.innerHTML = rows.length ? rows.join('') : emptyRow(4, '아직 입고 내역이 없습니다.');
+    return `<tr><td><strong>${escapeHtml(pr.name)}${catTag}</strong><small>${escapeHtml(pr.option || '-')}</small></td><td><strong>${number(quantity)}개</strong></td><td>${items.length}회</td><td><div class="date-chips">${chips}</div></td></tr>`;
+  }).join('') : emptyRow(4, state.purchases.length ? '조건에 맞는 입고 내역이 없습니다.' : '아직 입고 내역이 없습니다.');
 }
 function renderPurchases() {
   fillPurchaseFilterProduct();
@@ -640,7 +658,7 @@ function renderSales() {
 function renderInventory() {
   const { stats } = totals();
   fillCategorySelect($('#invFilterCategory'), inventoryFilters.category);
-  const shown = sortByCategory(stats.filter(inventoryMatchesFilter), (s) => s.product);
+  const shown = sortMetricRows(stats.filter(inventoryMatchesFilter), inventorySort);
   $('#inventoryRows').innerHTML = shown.length ? shown.map((i) => {
     const tag = i.isSet ? ' <span class="mini-tag">세트</span>' : '';
     const sub = i.isSet ? `${escapeHtml(i.product.code)} · ${escapeHtml(setComposition(i.product) || '부품 미지정')}` : `${escapeHtml(i.product.code)} · ${escapeHtml(i.product.option || '-')}`;
@@ -660,6 +678,15 @@ function bindForms() { $$('form input[type="date"]').forEach((input) => { input.
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
+  $('#summaryCategory').addEventListener('change', (event) => { summaryFilters.category = event.target.value; renderPurchaseSummary(); });
+  $('#summaryQuery').addEventListener('input', (event) => { summaryFilters.q = event.target.value; renderPurchaseSummary(); });
+  $('#summarySort').addEventListener('change', (event) => { summaryFilters.sort = event.target.value; renderPurchaseSummary(); });
+  $('#summaryReset').addEventListener('click', () => {
+    summaryFilters = { category: '', q: '', sort: 'quantity-desc' };
+    $('#summaryCategory').value = ''; $('#summaryQuery').value = ''; $('#summarySort').value = 'quantity-desc';
+    renderPurchaseSummary();
+  });
+  $('#invSort').addEventListener('change', (event) => { inventorySort = event.target.value; renderInventory(); });
   document.body.addEventListener('click', (event) => {
     const button = event.target.closest('[data-sales-page]');
     if (!button || button.disabled) return;
@@ -899,12 +926,12 @@ function bindActions() {
   $('#resetDemo').addEventListener('click', async () => { if (!confirm('현재 클라우드 데이터를 샘플 데이터로 전부 바꿀까요?')) return; try { applyState(await api('/api/import', { method: 'PUT', body: JSON.stringify(seedDemo()) })); } catch (err) { alert(err.message); } });
   $('#exportJson').addEventListener('click', () => download(`kokring-inventory-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
   $('#importJson').addEventListener('change', async (event) => { const file = event.target.files[0]; if (!file) return; if (!confirm('현재 클라우드 데이터를 이 백업 파일로 교체할까요?')) { event.target.value = ''; return; } try { applyState(await api('/api/import', { method: 'PUT', body: await file.text() })); } catch (err) { alert(err.message); } finally { event.target.value = ''; } });
-  $('#downloadCsv').addEventListener('click', () => { const rows = [['상품코드', '상품명', '분류', '입고', '판매', '현재재고', '평균원가', '판매가', '예상마진', '마진율', '재고금액'], ...sortByCategory(totals().stats.filter(inventoryMatchesFilter), (s) => s.product).map((item) => [item.product.code, productName(item.product.id), item.product.category || '', item.isSet ? '' : item.purchasedQty, item.soldQty, item.stock, Math.round(item.avgCost), item.salePrice, Math.round(item.margin), `${Math.round(item.marginRate * 1000) / 10}%`, Math.round(item.inventoryValue)])]; download(`kokring-inventory-${today()}.csv`, `\ufeff${rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')}`, 'text/csv;charset=utf-8'); });
+  $('#downloadCsv').addEventListener('click', () => { const rows = [['상품코드', '상품명', '분류', '입고', '판매', '현재재고', '평균원가', '판매가', '예상마진', '마진율', '재고금액'], ...sortedInventory().map((item) => [item.product.code, productName(item.product.id), item.product.category || '', item.isSet ? '' : item.purchasedQty, item.soldQty, item.stock, Math.round(item.avgCost), item.salePrice, Math.round(item.margin), `${Math.round(item.marginRate * 1000) / 10}%`, Math.round(item.inventoryValue)])]; download(`kokring-inventory-${today()}.csv`, `\ufeff${rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')}`, 'text/csv;charset=utf-8'); });
   $('#invFilterCategory')?.addEventListener('change', () => { inventoryFilters.category = $('#invFilterCategory').value; renderInventory(); });
   $('#invFilterStatus')?.addEventListener('change', () => { inventoryFilters.status = $('#invFilterStatus').value; renderInventory(); });
   const invq = $('#invFilterQuery');
   if (invq) invq.addEventListener('input', () => { inventoryFilters.q = invq.value; renderInventory(); });
-  $('#invFilterReset')?.addEventListener('click', () => { inventoryFilters = { category: '', status: '', q: '' }; if ($('#invFilterCategory')) $('#invFilterCategory').value = ''; if ($('#invFilterStatus')) $('#invFilterStatus').value = ''; if (invq) invq.value = ''; renderInventory(); });
+  $('#invFilterReset')?.addEventListener('click', () => { inventoryFilters = { category: '', status: '', q: '' }; inventorySort = 'category'; $('#invSort').value = 'category'; if ($('#invFilterCategory')) $('#invFilterCategory').value = ''; if ($('#invFilterStatus')) $('#invFilterStatus').value = ''; if (invq) invq.value = ''; renderInventory(); });
 }
 function connectEvents() { if (eventSource) eventSource.close(); eventSource = new EventSource('/events'); eventSource.addEventListener('change', () => loadRemote(false)); }
 async function init() { setStatus('클라우드 연결 중'); try { await ensureAccess(); await loadRemote(true); connectEvents(); setInterval(() => loadRemote(false), 15000); bindNavigation(); bindForms(); bindActions(); } catch (err) { setStatus('접속 비밀번호 확인 필요', 'error'); alert(err.message); } }
