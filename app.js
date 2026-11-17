@@ -181,13 +181,13 @@ function deleteButton(type, id) { return `<button class="danger-button" data-del
 function purchaseActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-purchase-id="${id}">수정</button>${deleteButton('purchases', id)}</div>`; }
 function costActionButtons(id) { return `<div class="row-actions"><button class="edit-button" data-edit-cost-id="${id}">수정</button>${deleteButton('costs', id)}</div>`; }
 function singleProducts() { return state.products.filter((p) => p.type !== 'set'); }
-function productLabel(p) { return `${p.code} · ${productName(p.id)}${p.type === 'set' ? ' (세트)' : ''}`; }
+function productLabel(p) { return `${p.code} · ${productName(p.id)}${p.type === 'set' ? ' (세트)' : ' (단품)'}`; }
 function optionsFrom(list, selectedId, placeholder) {
   return `<option value="">${placeholder}</option>${list.map((p) => `<option value="${p.id}" ${String(p.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(productLabel(p))}</option>`).join('')}`;
 }
 function fillProductSelects() {
   $$('select[name="productId"]').forEach((select) => {
-    const includeSets = !!select.closest('#saleForm'); // 판매만 세트 포함, 입고·비용·조정은 단일만
+    const includeSets = !!select.closest('#saleForm, #adjustmentForm'); // 판매·재고조정은 단품과 세트 모두 선택
     const current = select.value;
     select.innerHTML = optionsFrom(includeSets ? state.products : singleProducts(), current, '상품 선택');
     select.value = current;
@@ -459,7 +459,7 @@ function renderAdjustments() {
   $('#adjustmentCount').textContent = `${state.adjustments.length}건`;
   $('#adjustmentRows').innerHTML = state.adjustments.length ? [...state.adjustments].reverse().map((a) => {
     const inc = toNum(a.delta) >= 0;
-    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${productName(a.productId)}</td><td>${escapeHtml(a.reason)}</td><td class="${inc ? 'money-good' : 'money-bad'}">${inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
+    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${escapeHtml(state.products.find(p => p.id === a.productId) ? productLabel(state.products.find(p => p.id === a.productId)) : '삭제된 상품')}</td><td>${escapeHtml(a.reason)}</td><td class="${inc ? 'money-good' : 'money-bad'}">${inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
   }).join('') : emptyRow(6);
 }
 

@@ -676,6 +676,31 @@ app.post('/api/adjustments', async (req, res, next) => {
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
+// Move misassigned adjustment records without deleting their history.
+app.post('/api/adjustments/reassign', async (req, res, next) => {
+  let conn;
+  try {
+    const moves = req.body?.moves;
+    if (!Array.isArray(moves) || !moves.length || moves.length > 100) throw error('변경할 조정 내역을 확인해 주세요.');
+    if (new Set(moves.map(m => String(m.id))).size !== moves.length) throw error('중복 조정 내역입니다.');
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+    for (const move of moves) {
+      const rows = await conn.query('SELECT product_id, quantity_delta FROM adjustments WHERE adjustment_id = ? FOR UPDATE', [move.id]);
+      if (!rows.length || String(rows[0].product_id) !== String(move.fromProductId) || Number(rows[0].quantity_delta) !== Number(move.expectedDelta)) throw error('조정 내역이 변경됐습니다. 새로고침 후 확인해 주세요.', 409);
+      const targetId = await getActiveProduct(conn, move.toProductId);
+      const products = await conn.query('SELECT product_id, product_name, product_type FROM products WHERE product_id IN (?, ?)', [move.fromProductId, targetId]);
+      const source = products.find(p => String(p.product_id) === String(move.fromProductId));
+      const target = products.find(p => String(p.product_id) === String(targetId));
+      if (!source || !target || source.product_name !== target.product_name || source.product_type !== 'single' || target.product_type !== 'set') throw error('같은 이름의 단품에서 세트로만 이동할 수 있습니다.');
+      await conn.query('UPDATE adjustments SET product_id = ? WHERE adjustment_id = ?', [targetId, move.id]);
+    }
+    await conn.commit();
+    broadcast();
+    await replyState(res, conn);
+  } catch (err) { if (conn) await conn.rollback(); next(err); } finally { if (conn) conn.release(); }
+});
+
 app.delete('/api/adjustments/:id', async (req, res, next) => {
   let conn;
   try {
