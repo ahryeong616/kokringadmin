@@ -187,6 +187,7 @@ async function ensureSchema() {
     `);
     await addColumnIfMissing(conn, 'products', 'product_type', "VARCHAR(20) NOT NULL DEFAULT 'single'");
     await addColumnIfMissing(conn, 'products', 'category', 'VARCHAR(50) NULL');
+    await addColumnIfMissing(conn, 'products', 'restock_status', "VARCHAR(20) NOT NULL DEFAULT 'active'");
     const memoColumn = await conn.query("SELECT DATA_TYPE AS data_type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'adjustments' AND COLUMN_NAME = 'memo'");
     if (memoColumn[0]?.data_type !== 'mediumtext') await conn.query('ALTER TABLE adjustments MODIFY COLUMN memo MEDIUMTEXT NULL');
     await conn.query(`
@@ -214,7 +215,7 @@ async function readState(conn) {
   if (settings.length) state.settings.defaultRate = number(settings[0].setting_value, 190);
 
   const products = await conn.query(`
-    SELECT product_id, product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type, category
+    SELECT product_id, product_code, product_name, product_option, supplier, base_sale_price, reorder_level, product_type, category, restock_status
     FROM products WHERE is_active = 1 ORDER BY product_id ASC
   `);
   const componentRows = await conn.query(
@@ -230,6 +231,7 @@ async function readState(conn) {
     option: row.product_option || '', supplier: row.supplier || '',
     salePrice: number(row.base_sale_price), reorderLevel: integer(row.reorder_level),
     category: row.category || '',
+    restockStatus: ['active','hold','discontinued'].includes(row.restock_status) ? row.restock_status : 'active',
     type: row.product_type === 'set' ? 'set' : 'single',
     components: componentsBySet[String(row.product_id)] || [],
   }));
@@ -397,6 +399,18 @@ app.post('/api/products', async (req, res, next) => {
     if (conn) { try { await conn.rollback(); } catch (_) {} }
     next(err);
   } finally { if (conn) conn.release(); }
+});
+
+app.patch('/api/products/:id/restock', async (req,res,next) => {
+  let conn;
+  try {
+    const status = req.body?.status;
+    if (!['active','hold','discontinued'].includes(status)) throw error('재입고 상태를 확인해 주세요.');
+    conn = await pool.getConnection();
+    const id = await getActiveProduct(conn,req.params.id);
+    await conn.query('UPDATE products SET restock_status = ? WHERE product_id = ?', [status,id]);
+    broadcast(); await replyState(res,conn);
+  } catch(err) { next(err); } finally { if(conn) conn.release(); }
 });
 
 app.patch('/api/products/:id', async (req, res, next) => {
@@ -752,6 +766,7 @@ app.put('/api/import', async (req, res, next) => {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [code, name, text(product.option, 200) || null, text(product.supplier, 200) || null, number(product.salePrice), integer(product.reorderLevel), product.type === 'set' ? 'set' : 'single', text(product.category, 50) || null],
       );
+      if (['hold','discontinued'].includes(product.restockStatus)) await conn.query('UPDATE products SET restock_status = ? WHERE product_id = ?', [product.restockStatus,result.insertId]);
       idMap.set(String(product.id), String(result.insertId));
     }
     for (const product of products) {

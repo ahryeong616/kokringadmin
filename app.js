@@ -19,6 +19,8 @@ let productFilters = { q: '', category: '' };
 let mergingProductId = '';
 const selectedProductIds = new Set();
 let dashboardPeriod = 'thisMonth';
+let dashboardFocusTab = 'restock';
+let dashboardExpanded = false;
 let selectedChartMonth = '';
 let summaryFilters = { category: '', q: '', sort: 'quantity-desc' };
 let inventorySort = 'category';
@@ -210,7 +212,7 @@ function readInlineCostRow(row) {
 function productActionButtons(product) {
   const editAttr = product.type === 'set' ? `data-edit-set-id="${product.id}"` : `data-edit-product-id="${product.id}"`;
   const mergeBtn = product.type !== 'set' ? `<button class="ghost-button sm" data-merge-product-id="${product.id}">합치기</button>` : '';
-  return `<div class="row-actions"><button class="edit-button" ${editAttr}>수정</button>${mergeBtn}${deleteButton('products', product.id)}</div>`;
+  return `<div class="row-actions"><button class="edit-button" ${editAttr}>수정</button>${mergeBtn}${restockControl(product)}${deleteButton('products', product.id)}</div>`;
 }
 function renderProductMergeRow(p) {
   const others = singleProducts().filter((x) => x.id !== p.id);
@@ -489,7 +491,7 @@ function renderMonthlyDetail(mk) {
 }
 function renderBestseller(period) {
   const { statsMap } = totals();
-  const { from, to } = periodRange(period);
+  const { from, to } = recentThirtyDays();
   const map = {};
   state.sales.forEach((s) => {
     if (!inRange(s.date, from, to)) return;
@@ -498,8 +500,48 @@ function renderBestseller(period) {
     map[s.productId].qty += s.quantity; map[s.productId].revenue += r.netRevenue; map[s.productId].profit += r.profit;
   });
   const rows = Object.values(map).sort((a, b) => b.qty - a.qty).slice(0, 5);
-  $('#bestsellerPeriod').textContent = periodLabel(period);
-  $('#bestsellerRows').innerHTML = rows.length ? rows.map((r) => `<tr><td>${productName(r.productId)}</td><td>${number(r.qty)}개</td><td>${money(r.revenue)}</td><td class="${r.profit < 0 ? 'money-bad' : ''}">${money(r.profit)}</td></tr>`).join('') : emptyRow(4, '판매 기록이 없습니다.');
+  $('#bestsellerPeriod').textContent = '최근 30일';
+  $('#bestsellerRows').innerHTML = rows.length ? rows.map((r) => `<tr><td>${productName(r.productId)}</td><td>${number(r.qty)}개</td><td class="${r.profit < 0 ? 'money-bad' : ''}">${money(r.profit)}</td></tr>`).join('') : emptyRow(3, '최근 30일 판매가 없습니다.');
+}
+function recentThirtyDays() {
+  const now=new Date(), start=new Date(now.getFullYear(),now.getMonth(),now.getDate()-29);
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return {from:iso(start),to:iso(now)};
+}
+function restockControl(product) {
+  const current=product.restockStatus || 'active';
+  return `<select class="restock-control" data-restock-id="${product.id}" aria-label="${escapeHtml(productLabel(product))} 재입고 설정">${[['active','계속 판매'],['hold','재입고 보류'],['discontinued','재입고 안 함']].map(([value,label])=>`<option value="${value}" ${value===current?'selected':''}>${label}</option>`).join('')}</select>`;
+}
+function dashboardGroups(stats) {
+  const {from,to}=recentThirtyDays();
+  return DashboardInventory.classify(stats,state.sales,from,to);
+}
+function renderDashboardFocus(stats) {
+  const groups=dashboardGroups(stats),rows=groups[dashboardFocusTab];
+  $('#metricRestock').textContent=`${groups.restock.length}종`;
+  $('#restockTabCount').textContent=groups.restock.length;
+  $('#anomalyTabCount').textContent=groups.anomalies.length;
+  $('#excludedTabCount').textContent=groups.excluded.length;
+  const hints={restock:'품절 우선, 최근 30일 판매순입니다. 여러 세트가 공유하는 부품은 한 번만 표시합니다.',anomalies:'마이너스 재고는 실물과 입출고 내역을 확인하세요. 재입고 제외 여부와 관계없이 표시합니다.',excluded:'보류·제외한 상품도 재고와 판매 기록은 유지됩니다. 계속 판매로 변경하면 경고에 다시 포함됩니다.'};
+  $('#dashboardFocusHint').textContent=hints[dashboardFocusTab];
+  $('#dashboardFocusCount').textContent=`${rows.length}종`;
+  const tabs=$$('.dashboard-tabs [data-dashboard-tab]');
+  tabs.forEach(tab=>{const selected=tab.dataset.dashboardTab===dashboardFocusTab;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;});
+  $('#dashboardFocusPanel').setAttribute('aria-labelledby',`tab-${dashboardFocusTab}`);
+  const shown=dashboardExpanded?rows:rows.slice(0,5);
+  $('#dashboardFocusRows').innerHTML=shown.length?shown.map((r,index)=>{
+    const anomaly=dashboardFocusTab==='anomalies',excluded=dashboardFocusTab==='excluded';
+    const affected=(r.affectedSets || []).map(p=>p.name).join(', ');
+    const label=anomaly?'장부 확인':excluded?(r.product.restockStatus==='hold'?'보류':'재입고 제외'):r.stock===0?'품절':'수량 부족';
+    const detail=excluded?'재입고 경고 제외':anomaly?'입고·판매·실사 보정 내역 확인':`재주문 기준 ${number(r.threshold)}개 이하`;
+    const amount=r.isSet?`${number(r.buildable)}세트`:`${number(r.stock)}개`;
+    return `<article class="attention-row ${anomaly?'attention-error':excluded?'attention-muted':r.stock===0?'attention-urgent':'attention-low'}"><span class="attention-rank">${index+1}</span><div class="attention-info"><span class="attention-state">${label}</span><strong>${escapeHtml(productName(r.product.id))}</strong><small>${escapeHtml(r.product.code)} · ${detail}</small>${affected?`<small title="${escapeHtml(affected)}">연결 세트 ${r.affectedSets.length}종 · ${escapeHtml(affected)}</small>`:''}</div><div class="attention-stock"><strong>${amount}</strong><small>${r.isSet?'출고 가능':'현재 재고'}</small></div><div class="attention-actions"><button type="button" class="ghost-button" data-open-inventory="${r.product.id}">${anomaly?'장부 확인':'재고 확인'}</button>${restockControl(r.product)}</div></article>`;
+  }).join(''):`<div class="dashboard-empty">${dashboardFocusTab==='restock'?'현재 재입고가 필요한 상품이 없습니다.':dashboardFocusTab==='anomalies'?'마이너스 재고가 없습니다.':'보류·제외한 상품이 없습니다. 상품 목록에서도 재입고 여부를 설정할 수 있습니다.'}</div>`;
+  $('#dashboardListSummary').textContent=rows.length?`${rows.length}종 중 ${shown.length}종 표시`:'현재 장부 기준';
+  $('#dashboardShowAll').hidden=rows.length<=5;
+  $('#dashboardShowAll').textContent=dashboardExpanded?'간단히 보기':'전체 보기';
+  const count=groups.restock.length+groups.anomalies.length;
+  const badge=$('#navLowStock');if(badge){badge.textContent=count;badge.hidden=count===0;}
 }
 function renderDashboard() {
   const sum = totals();
@@ -512,9 +554,12 @@ function renderDashboard() {
   $('#metricInventoryValue').textContent = money(sum.inventoryValue);
   $('#metricRevenue').textContent = money(pRevenue);
   $('#metricProfit').textContent = money(pProfit);
+  $('#metricQuantity').textContent = `${number(periodSales.reduce((n,s)=>n+s.quantity,0))}개`;
+  renderDashboardFocus(sum.stats);
   const label = periodLabel(dashboardPeriod);
   $('#metricRevenueLabel').textContent = `${label} 매출`;
   $('#metricProfitLabel').textContent = `${label} 순이익`;
+  $('#metricQuantityLabel').textContent = `${label} 판매 수량`;
   $$('#periodBar .chip').forEach((c) => c.classList.toggle('active', c.dataset.period === dashboardPeriod));
   renderMonthlyChart();
   renderBestseller(dashboardPeriod);
@@ -636,11 +681,7 @@ function renderInventory() {
     const ready = i.isSet ? `${number(i.buildable)}세트${inventoryBadge(i)}${i.shortage ? `<small>키링 대비 그립·부품 ${number(i.shortage)}세트분 부족</small>` : ''}` : '-';
     return `<tr class="${stockRowClass({...i,stock:inventoryAvailability(i)})}"><td><strong>${escapeHtml(i.product.name)}${tag}</strong><small>${sub}</small></td><td>${number(i.purchasedQty)}개${i.isSet ? '<small>키링 기준 누적 입고</small>' : ''}</td><td>${number(i.soldQty)}개${i.isSet ? '<small>세트 판매</small>' : '<small>단품 판매 + 세트 사용</small>'}</td><td><strong>${number(i.isSet ? i.primaryStock : i.stock)}개</strong>${i.isSet ? '<small>연결된 키링의 실제 장부 재고</small>' : stockBadge(i)}</td><td>${grip}</td><td>${ready}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate*1000)/10}%</td><td>${money(i.inventoryValue)}</td></tr>`;
   }).join('') : emptyRow(11,'조건에 맞는 상품이 없습니다.');
-  const low = stats.filter(i => inventoryAvailability(i) <= toNum(i.product.reorderLevel));
-  $('#lowStockCount').textContent = `${low.length}개`;
-  $('#lowStockRows').innerHTML = low.length ? low.map(i => `<tr class="${stockRowClass({...i,stock:inventoryAvailability(i)})}"><td>${escapeHtml(i.product.name)}</td><td>${number(inventoryAvailability(i))}${i.isSet ? '세트' : '개'}${inventoryBadge(i)}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4,'재고 주의 상품이 없습니다.');
-  const badge = $('#navLowStock');
-  if(badge){badge.textContent=low.length;badge.hidden=low.length===0;}
+
 }
 function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); refreshComponentSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderAdjustments(); renderInventory(); updateSalePreview(); }
 
@@ -650,6 +691,29 @@ function bindForms() { $$('form input[type="date"]').forEach((input) => { input.
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
+  document.body.addEventListener('change',async event=>{
+    const select=event.target.closest('[data-restock-id]');if(!select)return;
+    const product=state.products.find(p=>p.id===select.dataset.restockId),previous=product?.restockStatus || 'active';
+    select.disabled=true;
+    try{applyState(await api(`/api/products/${select.dataset.restockId}/restock`,{method:'PATCH',body:JSON.stringify({status:select.value})}));setStatus('재입고 설정 저장됨','success');}
+    catch(err){select.value=previous;select.disabled=false;alert(err.message);}
+  });
+  document.body.addEventListener('click',event=>{
+    const tab=event.target.closest('[data-dashboard-tab]');
+    if(tab){dashboardFocusTab=tab.dataset.dashboardTab;dashboardExpanded=false;renderDashboardFocus(totals().stats);return;}
+    const open=event.target.closest('[data-open-inventory]');if(!open)return;
+    const product=state.products.find(p=>p.id===open.dataset.openInventory);if(!product)return;
+    inventoryFilters={type:product.type==='set'?'set':'single',category:'',status:'',q:product.code};
+    $('#invFilterType').value=inventoryFilters.type;$('#invFilterCategory').value='';$('#invFilterStatus').value='';$('#invFilterQuery').value=product.code;
+    document.querySelector('[data-view="inventory"]').click();renderInventory();
+  });
+  $('.dashboard-tabs').addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    const tabs=$$('.dashboard-tabs [role="tab"]'),current=tabs.indexOf(document.activeElement);if(current<0)return;
+    event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+    tabs[next].click();tabs[next].focus();
+  });
+  $('#dashboardShowAll').addEventListener('click',()=>{dashboardExpanded=!dashboardExpanded;renderDashboardFocus(totals().stats);});
   $('#summaryCategory').addEventListener('change', (event) => { summaryFilters.category = event.target.value; renderPurchaseSummary(); });
   $('#summaryQuery').addEventListener('input', (event) => { summaryFilters.q = event.target.value; renderPurchaseSummary(); });
   $('#summarySort').addEventListener('change', (event) => { summaryFilters.sort = event.target.value; renderPurchaseSummary(); });
