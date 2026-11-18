@@ -19,3 +19,5 @@
 .sales-pagination label,.sales-page-buttons{display:flex;align-items:center;gap:8px}
 .sales-pagination select{width:auto;min-height:36px}.sales-page-buttons button{min-height:36px}.sales-page-buttons button:disabled{opacity:.4;cursor:default}.sales-page-buttons span{white-space:nowrap}
 @media(max-width:680px){.sales-pagination{padding:12px}.sales-page-buttons{width:100%;flex-wrap:wrap}.sales-page-buttons button{padding:0 10px}}
+
+.inventory-guide{margin:0;padding:12px 20px;color:var(--muted);font-size:13px;line-height:1.6;background:var(--soft)}#inventory .table-wrap table{min-width:1450px}#inventory td small{display:block;margin-top:4px}

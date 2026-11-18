@@ -661,36 +661,9 @@ function parseFinishedStocktake(row) {
   if (row.reason !== '완제품 실사') return null;
   try { const data = JSON.parse(row.memo); return data.kind === 'finished-stocktake-v1' ? data : null; } catch (_) { return null; }
 }
-async function saveFinishedStocktake(conn, productId, date, quantity, note) {
-  if (!Number.isSafeInteger(quantity) || quantity < 0 || quantity > 2147483647) throw error('실재고 수량은 0 이상의 정수로 입력해 주세요.');
-  if (await getProductType(conn, productId) !== 'set') throw error('완제품 실사는 세트 상품만 선택할 수 있습니다.');
-  const current = await readState(conn);
-  const sales = current.sales.filter(x => x.productId === productId);
-  const payload = {kind:'finished-stocktake-v1',quantity,soldQty:sales.reduce((n,x)=>n+x.quantity,0),saleIds:sales.map(x=>x.id),purchaseIds:current.purchases.filter(x=>x.productId===productId).map(x=>x.id),purchasedQty:current.purchases.filter(x=>x.productId===productId).reduce((n,x)=>n+x.quantity,0),adjustQty:current.adjustments.filter(x=>x.productId===productId && !parseFinishedStocktake(x)).reduce((n,x)=>n+x.delta,0),note:text(note,200)};
-  const memo = JSON.stringify(payload);
-  if (memo.length > 1000000) throw error('실사 기록이 너무 큽니다. 관리자에게 문의해 주세요.');
-  await conn.query('INSERT INTO adjustments (adjustment_date, product_id, quantity_delta, reason, memo) VALUES (?, ?, ?, ?, ?)', [date,productId,quantity,'완제품 실사',memo]);
-}
-// Correct completed-set purchases and establish physical counts in one transaction.
-app.post('/api/finished-stock/reconcile', async (req,res,next) => {
-  let conn;
-  try {
-    const moves=req.body?.purchaseMoves,counts=req.body?.stocktakes;
-    if(!Array.isArray(moves)||!Array.isArray(counts)||!counts.length||counts.length>20||moves.length>20) throw error('입고 정정과 실사 내역을 확인해 주세요.');
-    if(new Set(moves.map(x=>String(x.id))).size!==moves.length||new Set(counts.map(x=>String(x.productId))).size!==counts.length) throw error('중복 항목입니다.');
-    conn=await pool.getConnection(); await conn.beginTransaction();
-    for(const move of moves){
-      const rows=await conn.query('SELECT product_id, quantity, supplier FROM purchases WHERE purchase_id = ? FOR UPDATE',[move.id]);
-      if(!rows.length||String(rows[0].product_id)!==String(move.fromProductId)||Number(rows[0].quantity)!==Number(move.expectedQuantity)||rows[0].supplier!==move.expectedSupplier) throw error('입고 내역이 변경되었습니다. 다시 확인해 주세요.',409);
-      const target=await getActiveProduct(conn,move.toProductId);
-      const products=await conn.query('SELECT product_id,product_name,product_type FROM products WHERE product_id IN (?, ?)',[move.fromProductId,target]);
-      const source=products.find(p=>String(p.product_id)===String(move.fromProductId)),dest=products.find(p=>String(p.product_id)===target);
-      if(!source||!dest||source.product_name!==dest.product_name||source.product_type!=='single'||dest.product_type!=='set') throw error('동일 이름의 단품 입고에서 완제품 세트 입고로만 정정할 수 있습니다.');
-      await conn.query('UPDATE purchases SET product_id = ? WHERE purchase_id = ?',[target,move.id]);
-    }
-    for(const count of counts){const id=await getActiveProduct(conn,count.productId);const date=dateOnly(count.date);if(!date)throw error('실사 날짜를 확인해 주세요.');await saveFinishedStocktake(conn,id,date,Number(count.quantity),count.memo);}
-    await conn.commit();broadcast();await replyState(res,conn);
-  }catch(err){if(conn)await conn.rollback();next(err);}finally{if(conn)conn.release();}
+// Historical finished-goods count rows remain in backups for audit only.
+app.post('/api/finished-stock/reconcile', (req,res) => {
+  res.status(410).json({message:'부품 통합 재고로 전환되었습니다. 입고와 부품 실사 보정을 이용해 주세요.'});
 });
 
 app.post('/api/adjustments', async (req, res, next) => {
@@ -698,12 +671,7 @@ app.post('/api/adjustments', async (req, res, next) => {
   try {
     const date = dateOnly(req.body?.date);
     if (!date) throw error('조정 날짜를 확인해 주세요.');
-    if (req.body?.direction === 'stocktake') {
-      conn = await pool.getConnection(); await conn.beginTransaction();
-      const productId = await getActiveProduct(conn,req.body?.productId);
-      await saveFinishedStocktake(conn,productId,date,Number(req.body?.quantity),req.body?.memo);
-      await conn.commit(); broadcast(); await replyState(res,conn); return;
-    }
+    if (!['increase','decrease'].includes(req.body?.direction)) throw error('재고 증가 또는 감소를 선택해 주세요. 별도 완제품 실사 설정은 더 이상 사용하지 않습니다.');
     const quantity = integer(req.body?.quantity);
     if (quantity < 1) throw error('조정 수량은 1개 이상이어야 합니다.');
     const reason = text(req.body?.reason, 100);
@@ -717,7 +685,7 @@ app.post('/api/adjustments', async (req, res, next) => {
     );
     broadcast();
     await replyState(res, conn);
-  } catch (err) { if (conn && req.body?.direction === 'stocktake') await conn.rollback(); next(err); } finally { if (conn) conn.release(); }
+  } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
 // Move misassigned adjustment records without deleting their history.

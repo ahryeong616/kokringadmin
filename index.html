@@ -127,7 +127,7 @@
 
       <section id="purchases" class="view">
         <section class="panel">
-          <div class="panel-header"><h3>입고 등록</h3><span>위안/원화 구매를 함께 관리합니다.</span></div>
+          <div class="panel-header"><h3>입고 등록</h3><span>키링·그립은 각각 입고합니다. 완제품 급구 구매만 세트를 선택하세요.</span></div>
           <form id="purchaseForm" class="form-grid">
             <input name="date" type="date" required>
             <select name="productId" required></select>
@@ -231,11 +231,11 @@
 
       <section id="adjustments" class="view">
         <section class="panel">
-          <div class="panel-header"><h3>재고 조정</h3><span>분실·파손·샘플 증정·실사 보정을 기록해 실제 재고와 맞춥니다.</span></div>
+          <div class="panel-header"><h3>재고 조정</h3><span>키링만 보정할 때는 단품을 선택하세요. 세트 조정은 키링과 그립을 함께 증감합니다.</span></div>
           <form id="adjustmentForm" class="form-grid">
             <input name="date" type="date" required>
             <select name="productId" required></select>
-            <select name="direction"><option value="decrease">재고 감소 (−)</option><option value="increase">재고 증가 (＋)</option><option value="stocktake">완제품 실사 (현재 수량 설정)</option></select>
+            <select name="direction"><option value="decrease">재고 감소 (−)</option><option value="increase">재고 증가 (＋)</option></select>
             <select name="reason"><option>분실</option><option>파손</option><option>샘플 증정</option><option>도난</option><option>반품 입고</option><option>실사 보정</option><option>기타</option></select>
             <input name="quantity" type="number" min="1" step="1" placeholder="수량" required>
             <input name="memo" placeholder="메모">
@@ -252,17 +252,20 @@
         <section class="panel">
           <div class="panel-header"><h3>현재 재고와 상품별 마진</h3><button id="downloadCsv" class="ghost-button">CSV 다운로드</button></div>
           <div class="filter-bar">
+            <select id="invFilterType" aria-label="재고 보기"><option value="set">판매용 세트</option><option value="single">키링·그립 부품</option><option value="">전체 보기</option></select>
             <select id="invFilterCategory" aria-label="분류 필터"><option value="">전체 분류</option></select>
             <select id="invFilterStatus" aria-label="재고 상태"><option value="">전체 재고</option><option value="low">재고부족·품절만</option><option value="ok">정상만</option></select>
             <input id="invFilterQuery" type="search" placeholder="상품명·코드 검색">
-            <select id="invSort" aria-label="재고 및 마진 정렬"><option value="category">분류순 (기본)</option><option value="stock-desc">재고 많은순</option><option value="stock-asc">재고 적은순</option><option value="purchasedQty-desc">입고수량 많은순</option><option value="soldQty-desc">판매수량 많은순</option><option value="margin-desc">예상 마진 높은순</option><option value="margin-asc">예상 마진 낮은순</option><option value="marginRate-desc">마진율 높은순</option><option value="marginRate-asc">마진율 낮은순</option><option value="inventoryValue-desc">재고금액 높은순</option><option value="inventoryValue-asc">재고금액 낮은순</option><option value="name">상품명순</option></select>
+            <select id="invSort" aria-label="재고 및 마진 정렬"><option value="category">분류순 (기본)</option><option value="stock-desc">키링·부품 재고 많은순</option><option value="stock-asc">키링·부품 재고 적은순</option><option value="buildable-desc">출고 가능 세트 많은순</option><option value="buildable-asc">출고 가능 세트 적은순</option><option value="purchasedQty-desc">입고수량 많은순</option><option value="soldQty-desc">판매수량 많은순</option><option value="margin-desc">예상 마진 높은순</option><option value="margin-asc">예상 마진 낮은순</option><option value="marginRate-desc">마진율 높은순</option><option value="marginRate-asc">마진율 낮은순</option><option value="inventoryValue-desc">재고금액 높은순</option><option value="inventoryValue-asc">재고금액 낮은순</option><option value="name">상품명순</option></select>
             <button id="invFilterReset" type="button" class="ghost-button">필터 초기화</button>
           </div>
-          <div class="table-wrap"><table><thead><tr><th>상품</th><th>입고</th><th>판매</th><th>현재 재고</th><th>평균 원가</th><th>판매가</th><th>예상 마진</th><th>마진율</th><th>재고금액</th></tr></thead><tbody id="inventoryRows"></tbody></table></div>
+          <p class="inventory-guide">세트 판매 시 키링과 그립을 함께 차감합니다. 세트 행과 부품 행은 같은 재고를 보여주며, 공용 그립을 사용하는 세트들의 출고 가능 수량은 서로 합산할 수 없습니다.</p>
+          <div class="table-wrap"><table><thead><tr><th>상품</th><th>입고</th><th>판매</th><th>키링 / 부품 재고</th><th>그립 / 기타 부품 재고</th><th>출고 가능 세트</th><th>평균 원가</th><th>판매가</th><th>예상 마진</th><th>마진율</th><th>재고금액</th></tr></thead><tbody id="inventoryRows"></tbody></table></div>
         </section>
       </section>
     </main>
   </div>
+  <script src="inventory-core.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@ let dashboardPeriod = 'thisMonth';
 let selectedChartMonth = '';
 let summaryFilters = { category: '', q: '', sort: 'quantity-desc' };
 let inventorySort = 'category';
-let inventoryFilters = { category: '', status: '', q: '' };
+let inventoryFilters = { type:'set', category: '', status: '', q: '' };
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function money(value) { return formatter.format(Math.round(Number(value) || 0)); }
@@ -118,58 +118,13 @@ function finishedStocktake(a) {
   if (a.reason !== '완제품 실사') return null;
   try { const data=JSON.parse(a.memo); return data.kind==='finished-stocktake-v1'?data:null; } catch (_) { return null; }
 }
-function latestFinishedStocktake(id) { return [...state.adjustments].reverse().find(a=>a.productId===id && finishedStocktake(a)); }
 function inventoryStats() {
-  const allocated=allocatedCostsByProduct(), componentUsage={}, finished={}, statMap={};
-  const soldOf=id=>state.sales.filter(x=>x.productId===id).reduce((n,x)=>n+toNum(x.quantity),0);
-  const adjustOf=id=>state.adjustments.filter(x=>x.productId===id && !finishedStocktake(x)).reduce((n,x)=>n+toNum(x.delta),0);
-  const purchasesOf=id=>state.purchases.filter(x=>x.productId===id);
-  state.products.filter(p=>p.type==='set').forEach(product=>{
-    const purchases=purchasesOf(product.id).slice().sort((a,b)=>a.date.localeCompare(b.date)||toNum(a.id)-toNum(b.id));
-    const purchasedQty=purchases.reduce((n,p)=>n+toNum(p.quantity),0);
-    const batches=purchases.map(p=>({id:String(p.id),date:p.date,left:toNum(p.quantity),unitCost:(purchaseTotal(p)+(purchasedQty?(allocated[product.id]||0)*toNum(p.quantity)/purchasedQty:0))/toNum(p.quantity)}));
-    const take=latestFinishedStocktake(product.id), snapshot=take&&finishedStocktake(take), saleUsage={};
-    const firstTake=state.adjustments.find(a=>a.productId===product.id && finishedStocktake(a));
-    const usageSnapshot=firstTake&&finishedStocktake(firstTake);
-    const sales=state.sales.filter(x=>x.productId===product.id).map((sale,index)=>({sale,index})).sort((a,b)=>a.sale.date.localeCompare(b.sale.date)||toNum(a.sale.id)-toNum(b.sale.id));
-    sales.forEach(({sale,index})=>{
-      let assembled=toNum(sale.quantity),readyCost=0;
-      if(usageSnapshot && !usageSnapshot.saleIds.includes(String(sale.id))){
-        for(const batch of batches){
-          if(usageSnapshot.purchaseIds.includes(batch.id)||batch.date>sale.date||assembled<=0)continue;
-          const qty=Math.min(batch.left,assembled);batch.left-=qty;assembled-=qty;readyCost+=qty*batch.unitCost;
-        }
-        saleUsage[sale.id]={assembled:0,readyCost,countedQty:assembled};return;
-      }
-      for(const batch of batches){if(batch.date>sale.date||assembled<=0)continue;const qty=Math.min(batch.left,assembled);batch.left-=qty;assembled-=qty;readyCost+=qty*batch.unitCost;}
-      saleUsage[sale.id]={assembled,readyCost,countedQty:0};
-      (product.components||[]).forEach(c=>{componentUsage[c.productId]=(componentUsage[c.productId]||0)+toNum(c.quantity)*assembled;});
-    });
-    finished[product.id]={purchasedQty,remaining:batches.reduce((n,b)=>n+b.left,0),remainingValue:batches.reduce((n,b)=>n+b.left*b.unitCost,0),saleUsage,snapshot};
-  });
-  state.products.filter(p=>p.type!=='set').forEach(product=>{
-    const purchases=purchasesOf(product.id),purchasedQty=purchases.reduce((n,p)=>n+toNum(p.quantity),0),usedInSets=componentUsage[product.id]||0;
-    const soldQty=soldOf(product.id)+usedInSets,adjustQty=adjustOf(product.id);
-    const avgCost=purchasedQty>0?(purchases.reduce((n,p)=>n+purchaseTotal(p),0)+(allocated[product.id]||0))/purchasedQty:0;
-    const stock=purchasedQty-soldQty+adjustQty,salePrice=toNum(product.salePrice),margin=salePrice-avgCost;
-    statMap[product.id]={product,isSet:false,purchasedQty,soldQty,usedInSets,adjustQty,stock,avgCost,salePrice,margin,marginRate:salePrice>0?margin/salePrice:0,inventoryValue:Math.max(stock,0)*avgCost};
-  });
-  state.products.filter(p=>p.type==='set').forEach(product=>{
-    const f=finished[product.id],comps=(product.components||[]).map(c=>({qty:toNum(c.quantity)||1,stat:statMap[c.productId]})).filter(x=>x.stat);
-    const assembledCost=comps.reduce((n,x)=>n+x.stat.avgCost*x.qty,0),buildable=comps.length?Math.min(...comps.map(x=>Math.floor(Math.max(x.stat.stock,0)/x.qty))):0;
-    const adjustQty=adjustOf(product.id),soldQty=soldOf(product.id);
-    const stock=f.snapshot?f.snapshot.quantity-(soldQty-f.snapshot.soldQty)+(f.purchasedQty-f.snapshot.purchasedQty)+(adjustQty-f.snapshot.adjustQty):buildable+f.remaining+adjustQty;
-    const avgCost=!f.snapshot && buildable+f.remaining>0?(buildable*assembledCost+f.remainingValue)/(buildable+f.remaining):assembledCost;
-    const saleCosts=Object.fromEntries(Object.entries(f.saleUsage).map(([id,u])=>[id,u.readyCost+(u.assembled+u.countedQty)*assembledCost]));
-    const salePrice=toNum(product.salePrice),margin=salePrice-avgCost;
-    statMap[product.id]={product,isSet:true,purchasedQty:f.purchasedQty,soldQty,usedInSets:0,adjustQty,stock,buildable,finishedRemaining:f.remaining,stocktake:f.snapshot,avgCost,saleCosts,salePrice,margin,marginRate:salePrice>0?margin/salePrice:0,inventoryValue:f.remainingValue};
-  });
-  return state.products.map(p=>statMap[p.id]).filter(Boolean);
+  return ComponentInventory.calculate(state, purchaseTotal, allocatedCostsByProduct());
 }
 function saleResult(sale, statsMap) {
   const stat = statsMap[sale.productId] || { avgCost: 0 };
   const netRevenue = sale.quantity * sale.salePrice - sale.discount + sale.shippingIncome;
-  const cogs = stat.saleCosts && Object.prototype.hasOwnProperty.call(stat.saleCosts, sale.id) ? stat.saleCosts[sale.id] : sale.quantity * stat.avgCost;
+  const cogs = sale.quantity * stat.avgCost;
   const expense = sale.shippingCost + sale.packingCost + sale.platformFee;
   return { netRevenue, profit: netRevenue - cogs - expense };
 }
@@ -429,11 +384,13 @@ function fillCategorySelect(sel, current) {
 }
 function inventoryMatchesFilter(stat) {
   const p = stat.product;
+  if(inventoryFilters.type === 'set' && !stat.isSet) return false;
+  if(inventoryFilters.type === 'single' && stat.isSet) return false;
   if (inventoryFilters.category) {
     if (inventoryFilters.category === '(미분류)') { if (p.category) return false; } else if (p.category !== inventoryFilters.category) return false;
   }
-  if (inventoryFilters.status === 'low' && !(stat.stock <= toNum(p.reorderLevel))) return false;
-  if (inventoryFilters.status === 'ok' && !(stat.stock > toNum(p.reorderLevel))) return false;
+  if (inventoryFilters.status === 'low' && !(inventoryAvailability(stat) <= toNum(p.reorderLevel))) return false;
+  if (inventoryFilters.status === 'ok' && !(inventoryAvailability(stat) > toNum(p.reorderLevel))) return false;
   if (inventoryFilters.q && !`${p.code} ${p.name} ${p.option || ''} ${p.category || ''}`.toLowerCase().includes(inventoryFilters.q.toLowerCase())) return false;
   return true;
 }
@@ -467,7 +424,7 @@ function renderAdjustments() {
   $('#adjustmentRows').innerHTML = state.adjustments.length ? [...state.adjustments].reverse().map((a) => {
     const count = finishedStocktake(a);
     const inc = toNum(a.delta) >= 0;
-    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${escapeHtml(state.products.find(p => p.id === a.productId) ? productLabel(state.products.find(p => p.id === a.productId)) : '삭제된 상품')}</td><td>${escapeHtml(a.reason)}</td><td class="${inc ? 'money-good' : 'money-bad'}">${count ? '실사 ' : inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(count ? count.note || '완제품 실재고 기준' : a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
+    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${escapeHtml(state.products.find(p => p.id === a.productId) ? productLabel(state.products.find(p => p.id === a.productId)) : '삭제된 상품')}</td><td>${escapeHtml(a.reason)}</td><td class="${inc ? 'money-good' : 'money-bad'}">${count ? '이전 실사 ' : inc ? '+' : '−'}${number(a.quantity)}개${count ? ' (계산 제외)' : ''}</td><td>${escapeHtml(count ? '부품 통합 계산으로 대체됨 · ' + (count.note || '') : a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
   }).join('') : emptyRow(6);
 }
 
@@ -484,10 +441,10 @@ function updateSalePreview() {
   };
   const r = saleResult(draft, statsMap);
   const stat = statsMap[draft.productId];
-  const stock = stat ? stat.stock : 0;
+  const stock = stat ? inventoryAvailability(stat) : 0;
   box.hidden = false;
-  box.className = `form-preview ${r.profit < 0 ? 'bad' : 'good'}`;
-  box.innerHTML = `<span>예상 매출 <strong>${money(r.netRevenue)}</strong></span><span>예상 순이익 <strong>${money(r.profit)}</strong></span><span>판매 후 재고 <strong>${number(stock - draft.quantity)}개</strong></span>`;
+  box.className = `form-preview ${r.profit < 0 || stock < draft.quantity ? 'bad' : 'good'}`;
+  box.innerHTML = `<span>예상 매출 <strong>${money(r.netRevenue)}</strong></span><span>예상 순이익 <strong>${money(r.profit)}</strong></span><span>판매 후 ${stat?.isSet ? '출고 가능' : '재고'} <strong>${number(stock - draft.quantity)}${stat?.isSet ? '세트' : '개'}</strong></span>`;
 }
 function autofillSalePrice() {
   const form = $('#saleForm'); if (!form) return;
@@ -599,7 +556,7 @@ function sortMetricRows(rows, sort) {
   if (sort === 'category') return base;
   if (sort === 'name') return base.sort((a, b) => a.product.name.localeCompare(b.product.name, 'ko'));
   const [field, direction] = sort.split('-');
-  const fields = ['quantity', 'count', 'stock', 'purchasedQty', 'soldQty', 'margin', 'marginRate', 'inventoryValue'];
+  const fields = ['quantity', 'count', 'stock', 'purchasedQty', 'soldQty', 'margin', 'marginRate', 'inventoryValue', 'buildable', 'gripStock'];
   if (!fields.includes(field) || !['asc', 'desc'].includes(direction)) return base;
   return base.sort((a, b) => (toNum(a[field]) - toNum(b[field])) * (direction === 'asc' ? 1 : -1));
 }
@@ -611,7 +568,7 @@ function renderPurchaseSummary() {
   const records = summaryRecords();
   el.innerHTML = records.length ? records.map(({product: pr, items, quantity}) => {
     const chips = items.map((x) => `<span class="date-chip">${shortDate(x.date)} · ${number(x.quantity)}개</span>`).join('');
-    const catTag = pr.category ? ` <span class="mini-tag cat">${escapeHtml(pr.category)}</span>` : '';
+    const catTag = (pr.category ? ` <span class="mini-tag cat">${escapeHtml(pr.category)}</span>` : '') + (pr.type === 'set' ? ' <span class="mini-tag">완제품 입고 · 부품에 합산</span>' : ' <span class="mini-tag">부품 입고</span>');
     return `<tr><td><strong>${escapeHtml(pr.name)}${catTag}</strong><small>${escapeHtml(pr.option || '-')}</small></td><td><strong>${number(quantity)}개</strong></td><td>${items.length}회</td><td><div class="date-chips">${chips}</div></td></tr>`;
   }).join('') : emptyRow(4, state.purchases.length ? '조건에 맞는 입고 내역이 없습니다.' : '아직 입고 내역이 없습니다.');
 }
@@ -663,20 +620,27 @@ function renderSales() {
   const recent = [...state.sales].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   $('#recentSalesRows').innerHTML = recent.length ? recent.map((s) => { const r = saleResult(s, statsMap); return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.profit)}</td></tr>`; }).join('') : emptyRow(4);
 }
+function inventoryAvailability(stat) { return stat.isSet ? stat.buildable : stat.stock; }
+function inventoryBadge(stat) {
+  const badge = stockBadge({...stat, stock:inventoryAvailability(stat)});
+  return badge || (stat.isSet && stat.shortage > 0 ? '<span class="stock-badge low">그립·부품 부족</span>' : '');
+}
 function renderInventory() {
   const { stats } = totals();
   fillCategorySelect($('#invFilterCategory'), inventoryFilters.category);
   const shown = sortMetricRows(stats.filter(inventoryMatchesFilter), inventorySort);
-  $('#inventoryRows').innerHTML = shown.length ? shown.map((i) => {
-    const tag = i.isSet ? ' <span class="mini-tag">세트</span>' : '';
-    const sub = i.isSet ? `${escapeHtml(i.product.code)} · ${escapeHtml(setComposition(i.product) || '부품 미지정')}` : `${escapeHtml(i.product.code)} · ${escapeHtml(i.product.option || '-')}`;
-    return `<tr class="${stockRowClass(i)}"><td><strong>${escapeHtml(i.product.name)}${tag}</strong><small>${sub}</small></td><td>${i.isSet ? (i.purchasedQty ? `완제품 ${number(i.purchasedQty)}개` : '-') : `${number(i.purchasedQty)}개`}</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개${stockBadge(i)}${i.isSet ? `<small>${i.stocktake ? '완제품 실사 기준 · ' : ''}부품 기준 조립 가능 ${number(i.buildable)}개</small>` : ''}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`;
-  }).join('') : emptyRow(9, stats.length ? '조건에 맞는 상품이 없습니다.' : '아직 입력된 내용이 없습니다.');
-  const low = stats.filter((item) => item.stock <= toNum(item.product.reorderLevel));
+  $('#inventoryRows').innerHTML = shown.length ? shown.map(i => {
+    const tag = i.isSet ? ' <span class="mini-tag">세트</span>' : ' <span class="mini-tag">부품</span>';
+    const sub = `${escapeHtml(i.product.code)} · ${escapeHtml(i.isSet ? setComposition(i.product) || '부품 미지정' : i.product.option || '-')}`;
+    const grip = i.isSet ? i.otherComponents.map(c => `<div>${number(c.stat.stock)}개<small>${escapeHtml(productName(c.productId))}</small></div>`).join('') || '-' : '-';
+    const ready = i.isSet ? `${number(i.buildable)}세트${inventoryBadge(i)}${i.shortage ? `<small>키링 대비 그립·부품 ${number(i.shortage)}세트분 부족</small>` : ''}` : '-';
+    return `<tr class="${stockRowClass({...i,stock:inventoryAvailability(i)})}"><td><strong>${escapeHtml(i.product.name)}${tag}</strong><small>${sub}</small></td><td>${number(i.purchasedQty)}개${i.isSet ? '<small>키링 기준 누적 입고</small>' : ''}</td><td>${number(i.soldQty)}개${i.isSet ? '<small>세트 판매</small>' : '<small>단품 판매 + 세트 사용</small>'}</td><td><strong>${number(i.isSet ? i.primaryStock : i.stock)}개</strong>${i.isSet ? '<small>연결된 키링의 실제 장부 재고</small>' : stockBadge(i)}</td><td>${grip}</td><td>${ready}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate*1000)/10}%</td><td>${money(i.inventoryValue)}</td></tr>`;
+  }).join('') : emptyRow(11,'조건에 맞는 상품이 없습니다.');
+  const low = stats.filter(i => inventoryAvailability(i) <= toNum(i.product.reorderLevel));
   $('#lowStockCount').textContent = `${low.length}개`;
-  $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr class="${stockRowClass(i)}"><td>${escapeHtml(i.product.name)}</td><td>${number(i.stock)}개${stockBadge(i)}${i.isSet ? `<small>${i.stocktake ? '완제품 실사 기준 · ' : ''}부품 기준 조립 가능 ${number(i.buildable)}개</small>` : ''}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.');
+  $('#lowStockRows').innerHTML = low.length ? low.map(i => `<tr class="${stockRowClass({...i,stock:inventoryAvailability(i)})}"><td>${escapeHtml(i.product.name)}</td><td>${number(inventoryAvailability(i))}${i.isSet ? '세트' : '개'}${inventoryBadge(i)}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4,'재고 주의 상품이 없습니다.');
   const badge = $('#navLowStock');
-  if (badge) { badge.textContent = low.length; badge.hidden = low.length === 0; }
+  if(badge){badge.textContent=low.length;badge.hidden=low.length===0;}
 }
 function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); refreshComponentSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderAdjustments(); renderInventory(); updateSalePreview(); }
 
@@ -686,11 +650,6 @@ function bindForms() { $$('form input[type="date"]').forEach((input) => { input.
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
-  $('#adjustmentForm select[name="direction"]').addEventListener('change', event => {
-    const field = $('#adjustmentForm input[name="quantity"]');
-    field.min = event.target.value === 'stocktake' ? '0' : '1';
-    field.placeholder = event.target.value === 'stocktake' ? '현재 완제품 실재고 수량' : '수량';
-  });
   $('#summaryCategory').addEventListener('change', (event) => { summaryFilters.category = event.target.value; renderPurchaseSummary(); });
   $('#summaryQuery').addEventListener('input', (event) => { summaryFilters.q = event.target.value; renderPurchaseSummary(); });
   $('#summarySort').addEventListener('change', (event) => { summaryFilters.sort = event.target.value; renderPurchaseSummary(); });
@@ -939,12 +898,13 @@ function bindActions() {
   $('#resetDemo').addEventListener('click', async () => { if (!confirm('현재 클라우드 데이터를 샘플 데이터로 전부 바꿀까요?')) return; try { applyState(await api('/api/import', { method: 'PUT', body: JSON.stringify(seedDemo()) })); } catch (err) { alert(err.message); } });
   $('#exportJson').addEventListener('click', () => download(`kokring-inventory-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
   $('#importJson').addEventListener('change', async (event) => { const file = event.target.files[0]; if (!file) return; if (!confirm('현재 클라우드 데이터를 이 백업 파일로 교체할까요?')) { event.target.value = ''; return; } try { applyState(await api('/api/import', { method: 'PUT', body: await file.text() })); } catch (err) { alert(err.message); } finally { event.target.value = ''; } });
-  $('#downloadCsv').addEventListener('click', () => { const rows = [['상품코드', '상품명', '분류', '입고', '판매', '현재재고', '평균원가', '판매가', '예상마진', '마진율', '재고금액'], ...sortedInventory().map((item) => [item.product.code, productName(item.product.id), item.product.category || '', item.purchasedQty, item.soldQty, item.stock, Math.round(item.avgCost), item.salePrice, Math.round(item.margin), `${Math.round(item.marginRate * 1000) / 10}%`, Math.round(item.inventoryValue)])]; download(`kokring-inventory-${today()}.csv`, `\ufeff${rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')}`, 'text/csv;charset=utf-8'); });
+  $('#downloadCsv').addEventListener('click', () => { const rows = [['상품코드', '상품명', '분류', '입고', '판매', '키링/부품재고', '그립/기타부품재고', '출고가능세트', '평균원가', '판매가', '예상마진', '마진율', '재고금액'], ...sortedInventory().map((item) => [item.product.code, productName(item.product.id), item.product.category || '', item.purchasedQty, item.soldQty, item.isSet ? item.primaryStock : item.stock, item.isSet ? item.otherComponents.map(c=>productName(c.productId)+':'+c.stat.stock).join(' / ') : '', item.isSet ? item.buildable : '', Math.round(item.avgCost), item.salePrice, Math.round(item.margin), `${Math.round(item.marginRate * 1000) / 10}%`, Math.round(item.inventoryValue)])]; download(`kokring-inventory-${today()}.csv`, `\ufeff${rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')}`, 'text/csv;charset=utf-8'); });
+  $('#invFilterType').addEventListener('change', event => {inventoryFilters.type=event.target.value;renderInventory();});
   $('#invFilterCategory')?.addEventListener('change', () => { inventoryFilters.category = $('#invFilterCategory').value; renderInventory(); });
   $('#invFilterStatus')?.addEventListener('change', () => { inventoryFilters.status = $('#invFilterStatus').value; renderInventory(); });
   const invq = $('#invFilterQuery');
   if (invq) invq.addEventListener('input', () => { inventoryFilters.q = invq.value; renderInventory(); });
-  $('#invFilterReset')?.addEventListener('click', () => { inventoryFilters = { category: '', status: '', q: '' }; inventorySort = 'category'; $('#invSort').value = 'category'; if ($('#invFilterCategory')) $('#invFilterCategory').value = ''; if ($('#invFilterStatus')) $('#invFilterStatus').value = ''; if (invq) invq.value = ''; renderInventory(); });
+  $('#invFilterReset')?.addEventListener('click', () => { inventoryFilters = { type:'set', category: '', status: '', q: '' }; $('#invFilterType').value='set'; inventorySort = 'category'; $('#invSort').value = 'category'; if ($('#invFilterCategory')) $('#invFilterCategory').value = ''; if ($('#invFilterStatus')) $('#invFilterStatus').value = ''; if (invq) invq.value = ''; renderInventory(); });
 }
 function connectEvents() { if (eventSource) eventSource.close(); eventSource = new EventSource('/events'); eventSource.addEventListener('change', () => loadRemote(false)); }
 async function init() { setStatus('클라우드 연결 중'); try { await ensureAccess(); await loadRemote(true); connectEvents(); setInterval(() => loadRemote(false), 15000); bindNavigation(); bindForms(); bindActions(); } catch (err) { setStatus('접속 비밀번호 확인 필요', 'error'); alert(err.message); } }
