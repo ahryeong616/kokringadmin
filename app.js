@@ -114,55 +114,62 @@ function allocatedCostsByProduct() {
   });
   return map;
 }
+function finishedStocktake(a) {
+  if (a.reason !== '완제품 실사') return null;
+  try { const data=JSON.parse(a.memo); return data.kind==='finished-stocktake-v1'?data:null; } catch (_) { return null; }
+}
+function latestFinishedStocktake(id) { return [...state.adjustments].reverse().find(a=>a.productId===id && finishedStocktake(a)); }
 function inventoryStats() {
-  const allocated = allocatedCostsByProduct();
-  const productById = Object.fromEntries(state.products.map((p) => [p.id, p]));
-  // 세트 판매가 소비한 부품 수량 집계
-  const componentUsage = {};
-  state.sales.forEach((sale) => {
-    const prod = productById[sale.productId];
-    if (prod && prod.type === 'set') {
-      (prod.components || []).forEach((c) => {
-        componentUsage[c.productId] = (componentUsage[c.productId] || 0) + toNum(c.quantity) * sale.quantity;
-      });
-    }
+  const allocated=allocatedCostsByProduct(), componentUsage={}, finished={}, statMap={};
+  const soldOf=id=>state.sales.filter(x=>x.productId===id).reduce((n,x)=>n+toNum(x.quantity),0);
+  const adjustOf=id=>state.adjustments.filter(x=>x.productId===id && !finishedStocktake(x)).reduce((n,x)=>n+toNum(x.delta),0);
+  const purchasesOf=id=>state.purchases.filter(x=>x.productId===id);
+  state.products.filter(p=>p.type==='set').forEach(product=>{
+    const purchases=purchasesOf(product.id).slice().sort((a,b)=>a.date.localeCompare(b.date)||toNum(a.id)-toNum(b.id));
+    const purchasedQty=purchases.reduce((n,p)=>n+toNum(p.quantity),0);
+    const batches=purchases.map(p=>({id:String(p.id),date:p.date,left:toNum(p.quantity),unitCost:(purchaseTotal(p)+(purchasedQty?(allocated[product.id]||0)*toNum(p.quantity)/purchasedQty:0))/toNum(p.quantity)}));
+    const take=latestFinishedStocktake(product.id), snapshot=take&&finishedStocktake(take), saleUsage={};
+    const firstTake=state.adjustments.find(a=>a.productId===product.id && finishedStocktake(a));
+    const usageSnapshot=firstTake&&finishedStocktake(firstTake);
+    const sales=state.sales.filter(x=>x.productId===product.id).map((sale,index)=>({sale,index})).sort((a,b)=>a.sale.date.localeCompare(b.sale.date)||toNum(a.sale.id)-toNum(b.sale.id));
+    sales.forEach(({sale,index})=>{
+      let assembled=toNum(sale.quantity),readyCost=0;
+      if(usageSnapshot && !usageSnapshot.saleIds.includes(String(sale.id))){
+        for(const batch of batches){
+          if(usageSnapshot.purchaseIds.includes(batch.id)||batch.date>sale.date||assembled<=0)continue;
+          const qty=Math.min(batch.left,assembled);batch.left-=qty;assembled-=qty;readyCost+=qty*batch.unitCost;
+        }
+        saleUsage[sale.id]={assembled:0,readyCost,countedQty:assembled};return;
+      }
+      for(const batch of batches){if(batch.date>sale.date||assembled<=0)continue;const qty=Math.min(batch.left,assembled);batch.left-=qty;assembled-=qty;readyCost+=qty*batch.unitCost;}
+      saleUsage[sale.id]={assembled,readyCost,countedQty:0};
+      (product.components||[]).forEach(c=>{componentUsage[c.productId]=(componentUsage[c.productId]||0)+toNum(c.quantity)*assembled;});
+    });
+    finished[product.id]={purchasedQty,remaining:batches.reduce((n,b)=>n+b.left,0),remainingValue:batches.reduce((n,b)=>n+b.left*b.unitCost,0),saleUsage,snapshot};
   });
-  const directSoldOf = (id) => state.sales.filter((item) => item.productId === id).reduce((sum, item) => sum + item.quantity, 0);
-  const adjustOf = (id) => state.adjustments.filter((item) => item.productId === id).reduce((sum, item) => sum + toNum(item.delta), 0);
-  const statMap = {};
-  // 1단계: 단일 상품
-  state.products.filter((p) => p.type !== 'set').forEach((product) => {
-    const purchases = state.purchases.filter((item) => item.productId === product.id);
-    const purchasedQty = purchases.reduce((sum, item) => sum + item.quantity, 0);
-    const purchaseValue = purchases.reduce((sum, item) => sum + purchaseTotal(item), 0);
-    const usedInSets = componentUsage[product.id] || 0;
-    const soldQty = directSoldOf(product.id) + usedInSets;
-    const adjustQty = adjustOf(product.id);
-    const avgCost = purchasedQty > 0 ? (purchaseValue + (allocated[product.id] || 0)) / purchasedQty : 0;
-    const stock = purchasedQty - soldQty + adjustQty;
-    const salePrice = toNum(product.salePrice);
-    const margin = salePrice - avgCost;
-    statMap[product.id] = { product, isSet: false, purchasedQty, soldQty, usedInSets, adjustQty, stock, avgCost, salePrice, margin, marginRate: salePrice > 0 ? margin / salePrice : 0, inventoryValue: Math.max(stock, 0) * avgCost };
+  state.products.filter(p=>p.type!=='set').forEach(product=>{
+    const purchases=purchasesOf(product.id),purchasedQty=purchases.reduce((n,p)=>n+toNum(p.quantity),0),usedInSets=componentUsage[product.id]||0;
+    const soldQty=soldOf(product.id)+usedInSets,adjustQty=adjustOf(product.id);
+    const avgCost=purchasedQty>0?(purchases.reduce((n,p)=>n+purchaseTotal(p),0)+(allocated[product.id]||0))/purchasedQty:0;
+    const stock=purchasedQty-soldQty+adjustQty,salePrice=toNum(product.salePrice),margin=salePrice-avgCost;
+    statMap[product.id]={product,isSet:false,purchasedQty,soldQty,usedInSets,adjustQty,stock,avgCost,salePrice,margin,marginRate:salePrice>0?margin/salePrice:0,inventoryValue:Math.max(stock,0)*avgCost};
   });
-  // 2단계: 세트(완제품) — 부품 원가 합산 & 만들 수 있는 수량
-  state.products.filter((p) => p.type === 'set').forEach((product) => {
-    const comps = (product.components || []).map((c) => ({ qty: toNum(c.quantity) || 1, stat: statMap[c.productId] })).filter((x) => x.stat);
-    const avgCost = comps.reduce((sum, x) => sum + x.stat.avgCost * x.qty, 0);
-    let buildable = comps.length ? Infinity : 0;
-    comps.forEach((x) => { buildable = Math.min(buildable, Math.floor(Math.max(x.stat.stock, 0) / x.qty)); });
-    if (!Number.isFinite(buildable)) buildable = 0;
-    const adjustQty = adjustOf(product.id);
-    const stock = buildable + adjustQty;
-    const salePrice = toNum(product.salePrice);
-    const margin = salePrice - avgCost;
-    statMap[product.id] = { product, isSet: true, purchasedQty: 0, soldQty: directSoldOf(product.id), usedInSets: 0, adjustQty, stock, buildable, avgCost, salePrice, margin, marginRate: salePrice > 0 ? margin / salePrice : 0, inventoryValue: 0 };
+  state.products.filter(p=>p.type==='set').forEach(product=>{
+    const f=finished[product.id],comps=(product.components||[]).map(c=>({qty:toNum(c.quantity)||1,stat:statMap[c.productId]})).filter(x=>x.stat);
+    const assembledCost=comps.reduce((n,x)=>n+x.stat.avgCost*x.qty,0),buildable=comps.length?Math.min(...comps.map(x=>Math.floor(Math.max(x.stat.stock,0)/x.qty))):0;
+    const adjustQty=adjustOf(product.id),soldQty=soldOf(product.id);
+    const stock=f.snapshot?f.snapshot.quantity-(soldQty-f.snapshot.soldQty)+(f.purchasedQty-f.snapshot.purchasedQty)+(adjustQty-f.snapshot.adjustQty):buildable+f.remaining+adjustQty;
+    const avgCost=!f.snapshot && buildable+f.remaining>0?(buildable*assembledCost+f.remainingValue)/(buildable+f.remaining):assembledCost;
+    const saleCosts=Object.fromEntries(Object.entries(f.saleUsage).map(([id,u])=>[id,u.readyCost+(u.assembled+u.countedQty)*assembledCost]));
+    const salePrice=toNum(product.salePrice),margin=salePrice-avgCost;
+    statMap[product.id]={product,isSet:true,purchasedQty:f.purchasedQty,soldQty,usedInSets:0,adjustQty,stock,buildable,finishedRemaining:f.remaining,stocktake:f.snapshot,avgCost,saleCosts,salePrice,margin,marginRate:salePrice>0?margin/salePrice:0,inventoryValue:f.remainingValue};
   });
-  return state.products.map((p) => statMap[p.id]).filter(Boolean);
+  return state.products.map(p=>statMap[p.id]).filter(Boolean);
 }
 function saleResult(sale, statsMap) {
   const stat = statsMap[sale.productId] || { avgCost: 0 };
   const netRevenue = sale.quantity * sale.salePrice - sale.discount + sale.shippingIncome;
-  const cogs = sale.quantity * stat.avgCost;
+  const cogs = stat.saleCosts && Object.prototype.hasOwnProperty.call(stat.saleCosts, sale.id) ? stat.saleCosts[sale.id] : sale.quantity * stat.avgCost;
   const expense = sale.shippingCost + sale.packingCost + sale.platformFee;
   return { netRevenue, profit: netRevenue - cogs - expense };
 }
@@ -187,7 +194,7 @@ function optionsFrom(list, selectedId, placeholder) {
 }
 function fillProductSelects() {
   $$('select[name="productId"]').forEach((select) => {
-    const includeSets = !!select.closest('#saleForm, #adjustmentForm'); // 판매·재고조정은 단품과 세트 모두 선택
+    const includeSets = !!select.closest('#saleForm, #adjustmentForm, #purchaseForm'); // 입고·판매·재고조정은 단품과 세트 모두 선택
     const current = select.value;
     select.innerHTML = optionsFrom(includeSets ? state.products : singleProducts(), current, '상품 선택');
     select.value = current;
@@ -197,7 +204,7 @@ function productOptions(selectedId = '', list = state.products) { return options
 function renderPurchaseEditRow(p) {
   return `<tr data-purchase-edit-id="${p.id}">
     <td><input class="inline-input compact" name="date" type="date" value="${escapeHtml(p.date)}" required></td>
-    <td><select class="inline-select" name="productId" required>${productOptions(p.productId, singleProducts())}</select></td>
+    <td><select class="inline-select" name="productId" required>${productOptions(p.productId)}</select></td>
     <td><input class="inline-input" name="supplier" value="${escapeHtml(purchaseSupplier(p))}" placeholder="공급처"></td>
     <td><input class="inline-input compact" name="quantity" type="number" min="1" step="1" value="${p.quantity}" required></td>
     <td>
@@ -389,7 +396,7 @@ function productFilterOptions(current, list = state.products) {
   return `<option value="">전체 상품</option>${list.map((p) => `<option value="${p.id}" ${String(p.id) === String(current) ? 'selected' : ''}>${escapeHtml(productLabel(p))}</option>`).join('')}`;
 }
 function fillSaleFilterProduct() { const el = $('#saleFilterProduct'); if (el) el.innerHTML = productFilterOptions(saleFilters.productId); }
-function fillPurchaseFilterProduct() { const el = $('#purchaseFilterProduct'); if (el) el.innerHTML = productFilterOptions(purchaseFilters.productId, singleProducts()); }
+function fillPurchaseFilterProduct() { const el = $('#purchaseFilterProduct'); if (el) el.innerHTML = productFilterOptions(purchaseFilters.productId); }
 
 function periodRange(period) {
   const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
@@ -458,8 +465,9 @@ function adjustmentActionButtons(id) { return `<div class="row-actions">${delete
 function renderAdjustments() {
   $('#adjustmentCount').textContent = `${state.adjustments.length}건`;
   $('#adjustmentRows').innerHTML = state.adjustments.length ? [...state.adjustments].reverse().map((a) => {
+    const count = finishedStocktake(a);
     const inc = toNum(a.delta) >= 0;
-    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${escapeHtml(state.products.find(p => p.id === a.productId) ? productLabel(state.products.find(p => p.id === a.productId)) : '삭제된 상품')}</td><td>${escapeHtml(a.reason)}</td><td class="${inc ? 'money-good' : 'money-bad'}">${inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
+    return `<tr><td>${dateFormatter.format(new Date(a.date))}</td><td>${escapeHtml(state.products.find(p => p.id === a.productId) ? productLabel(state.products.find(p => p.id === a.productId)) : '삭제된 상품')}</td><td>${escapeHtml(a.reason)}</td><td class="${inc ? 'money-good' : 'money-bad'}">${count ? '실사 ' : inc ? '+' : '−'}${number(a.quantity)}개</td><td>${escapeHtml(count ? count.note || '완제품 실재고 기준' : a.memo || '-')}</td><td>${adjustmentActionButtons(a.id)}</td></tr>`;
   }).join('') : emptyRow(6);
 }
 
@@ -614,7 +622,7 @@ function renderPurchases() {
   $('#purchaseCount').textContent = list.length !== state.purchases.length ? `${list.length}건 / 전체 ${state.purchases.length}건` : `${state.purchases.length}건`;
   $('#purchaseRows').innerHTML = list.length ? list.map((p) => {
     if (String(p.id) === String(editingPurchaseId)) return renderPurchaseEditRow(p);
-    return `<tr><td>${dateFormatter.format(new Date(p.date))}</td><td>${productName(p.productId)}</td><td>${purchaseSupplier(p) || '-'}</td><td>${number(p.quantity)}개</td><td>${p.currency} ${number(p.unitPrice)}</td><td>${money(p.shipping)}</td><td>${p.memo || '-'}</td><td>${money(purchaseTotal(p))}</td><td>${purchaseActionButtons(p.id)}</td></tr>`;
+    return `<tr><td>${dateFormatter.format(new Date(p.date))}</td><td>${escapeHtml(productLabel(state.products.find(x => x.id === p.productId)))}</td><td>${purchaseSupplier(p) || '-'}</td><td>${number(p.quantity)}개</td><td>${p.currency} ${number(p.unitPrice)}</td><td>${money(p.shipping)}</td><td>${p.memo || '-'}</td><td>${money(purchaseTotal(p))}</td><td>${purchaseActionButtons(p.id)}</td></tr>`;
   }).join('') : emptyRow(9, state.purchases.length ? '조건에 맞는 입고 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderCosts() {
@@ -662,11 +670,11 @@ function renderInventory() {
   $('#inventoryRows').innerHTML = shown.length ? shown.map((i) => {
     const tag = i.isSet ? ' <span class="mini-tag">세트</span>' : '';
     const sub = i.isSet ? `${escapeHtml(i.product.code)} · ${escapeHtml(setComposition(i.product) || '부품 미지정')}` : `${escapeHtml(i.product.code)} · ${escapeHtml(i.product.option || '-')}`;
-    return `<tr class="${stockRowClass(i)}"><td><strong>${escapeHtml(i.product.name)}${tag}</strong><small>${sub}</small></td><td>${i.isSet ? '-' : `${number(i.purchasedQty)}개`}</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`;
+    return `<tr class="${stockRowClass(i)}"><td><strong>${escapeHtml(i.product.name)}${tag}</strong><small>${sub}</small></td><td>${i.isSet ? (i.purchasedQty ? `완제품 ${number(i.purchasedQty)}개` : '-') : `${number(i.purchasedQty)}개`}</td><td>${number(i.soldQty)}개</td><td>${number(i.stock)}개${stockBadge(i)}${i.isSet ? `<small>${i.stocktake ? '완제품 실사 기준 · ' : ''}부품 기준 조립 가능 ${number(i.buildable)}개</small>` : ''}</td><td>${money(i.avgCost)}</td><td>${money(i.salePrice)}</td><td class="${i.margin < 0 ? 'money-bad' : ''}">${money(i.margin)}</td><td>${Math.round(i.marginRate * 1000) / 10}%</td><td>${money(i.inventoryValue)}</td></tr>`;
   }).join('') : emptyRow(9, stats.length ? '조건에 맞는 상품이 없습니다.' : '아직 입력된 내용이 없습니다.');
   const low = stats.filter((item) => item.stock <= toNum(item.product.reorderLevel));
   $('#lowStockCount').textContent = `${low.length}개`;
-  $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr class="${stockRowClass(i)}"><td>${escapeHtml(i.product.name)}</td><td>${number(i.stock)}개${stockBadge(i)}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.');
+  $('#lowStockRows').innerHTML = low.length ? low.map((i) => `<tr class="${stockRowClass(i)}"><td>${escapeHtml(i.product.name)}</td><td>${number(i.stock)}개${stockBadge(i)}${i.isSet ? `<small>${i.stocktake ? '완제품 실사 기준 · ' : ''}부품 기준 조립 가능 ${number(i.buildable)}개</small>` : ''}</td><td>${number(i.product.reorderLevel)}개</td><td>${money(i.margin)}</td></tr>`).join('') : emptyRow(4, '재고 주의 상품이 없습니다.');
   const badge = $('#navLowStock');
   if (badge) { badge.textContent = low.length; badge.hidden = low.length === 0; }
 }
@@ -678,6 +686,11 @@ function bindForms() { $$('form input[type="date"]').forEach((input) => { input.
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
+  $('#adjustmentForm select[name="direction"]').addEventListener('change', event => {
+    const field = $('#adjustmentForm input[name="quantity"]');
+    field.min = event.target.value === 'stocktake' ? '0' : '1';
+    field.placeholder = event.target.value === 'stocktake' ? '현재 완제품 실재고 수량' : '수량';
+  });
   $('#summaryCategory').addEventListener('change', (event) => { summaryFilters.category = event.target.value; renderPurchaseSummary(); });
   $('#summaryQuery').addEventListener('input', (event) => { summaryFilters.q = event.target.value; renderPurchaseSummary(); });
   $('#summarySort').addEventListener('change', (event) => { summaryFilters.sort = event.target.value; renderPurchaseSummary(); });
@@ -926,7 +939,7 @@ function bindActions() {
   $('#resetDemo').addEventListener('click', async () => { if (!confirm('현재 클라우드 데이터를 샘플 데이터로 전부 바꿀까요?')) return; try { applyState(await api('/api/import', { method: 'PUT', body: JSON.stringify(seedDemo()) })); } catch (err) { alert(err.message); } });
   $('#exportJson').addEventListener('click', () => download(`kokring-inventory-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
   $('#importJson').addEventListener('change', async (event) => { const file = event.target.files[0]; if (!file) return; if (!confirm('현재 클라우드 데이터를 이 백업 파일로 교체할까요?')) { event.target.value = ''; return; } try { applyState(await api('/api/import', { method: 'PUT', body: await file.text() })); } catch (err) { alert(err.message); } finally { event.target.value = ''; } });
-  $('#downloadCsv').addEventListener('click', () => { const rows = [['상품코드', '상품명', '분류', '입고', '판매', '현재재고', '평균원가', '판매가', '예상마진', '마진율', '재고금액'], ...sortedInventory().map((item) => [item.product.code, productName(item.product.id), item.product.category || '', item.isSet ? '' : item.purchasedQty, item.soldQty, item.stock, Math.round(item.avgCost), item.salePrice, Math.round(item.margin), `${Math.round(item.marginRate * 1000) / 10}%`, Math.round(item.inventoryValue)])]; download(`kokring-inventory-${today()}.csv`, `\ufeff${rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')}`, 'text/csv;charset=utf-8'); });
+  $('#downloadCsv').addEventListener('click', () => { const rows = [['상품코드', '상품명', '분류', '입고', '판매', '현재재고', '평균원가', '판매가', '예상마진', '마진율', '재고금액'], ...sortedInventory().map((item) => [item.product.code, productName(item.product.id), item.product.category || '', item.purchasedQty, item.soldQty, item.stock, Math.round(item.avgCost), item.salePrice, Math.round(item.margin), `${Math.round(item.marginRate * 1000) / 10}%`, Math.round(item.inventoryValue)])]; download(`kokring-inventory-${today()}.csv`, `\ufeff${rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')}`, 'text/csv;charset=utf-8'); });
   $('#invFilterCategory')?.addEventListener('change', () => { inventoryFilters.category = $('#invFilterCategory').value; renderInventory(); });
   $('#invFilterStatus')?.addEventListener('change', () => { inventoryFilters.status = $('#invFilterStatus').value; renderInventory(); });
   const invq = $('#invFilterQuery');

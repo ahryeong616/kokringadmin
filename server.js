@@ -187,6 +187,8 @@ async function ensureSchema() {
     `);
     await addColumnIfMissing(conn, 'products', 'product_type', "VARCHAR(20) NOT NULL DEFAULT 'single'");
     await addColumnIfMissing(conn, 'products', 'category', 'VARCHAR(50) NULL');
+    const memoColumn = await conn.query("SELECT DATA_TYPE AS data_type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'adjustments' AND COLUMN_NAME = 'memo'");
+    if (memoColumn[0]?.data_type !== 'mediumtext') await conn.query('ALTER TABLE adjustments MODIFY COLUMN memo MEDIUMTEXT NULL');
     await conn.query(`
       CREATE TABLE IF NOT EXISTS product_components (
         component_row_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -655,11 +657,53 @@ app.delete('/api/sales/:id', async (req, res, next) => {
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
+function parseFinishedStocktake(row) {
+  if (row.reason !== '완제품 실사') return null;
+  try { const data = JSON.parse(row.memo); return data.kind === 'finished-stocktake-v1' ? data : null; } catch (_) { return null; }
+}
+async function saveFinishedStocktake(conn, productId, date, quantity, note) {
+  if (!Number.isSafeInteger(quantity) || quantity < 0 || quantity > 2147483647) throw error('실재고 수량은 0 이상의 정수로 입력해 주세요.');
+  if (await getProductType(conn, productId) !== 'set') throw error('완제품 실사는 세트 상품만 선택할 수 있습니다.');
+  const current = await readState(conn);
+  const sales = current.sales.filter(x => x.productId === productId);
+  const payload = {kind:'finished-stocktake-v1',quantity,soldQty:sales.reduce((n,x)=>n+x.quantity,0),saleIds:sales.map(x=>x.id),purchaseIds:current.purchases.filter(x=>x.productId===productId).map(x=>x.id),purchasedQty:current.purchases.filter(x=>x.productId===productId).reduce((n,x)=>n+x.quantity,0),adjustQty:current.adjustments.filter(x=>x.productId===productId && !parseFinishedStocktake(x)).reduce((n,x)=>n+x.delta,0),note:text(note,200)};
+  const memo = JSON.stringify(payload);
+  if (memo.length > 1000000) throw error('실사 기록이 너무 큽니다. 관리자에게 문의해 주세요.');
+  await conn.query('INSERT INTO adjustments (adjustment_date, product_id, quantity_delta, reason, memo) VALUES (?, ?, ?, ?, ?)', [date,productId,quantity,'완제품 실사',memo]);
+}
+// Correct completed-set purchases and establish physical counts in one transaction.
+app.post('/api/finished-stock/reconcile', async (req,res,next) => {
+  let conn;
+  try {
+    const moves=req.body?.purchaseMoves,counts=req.body?.stocktakes;
+    if(!Array.isArray(moves)||!Array.isArray(counts)||!counts.length||counts.length>20||moves.length>20) throw error('입고 정정과 실사 내역을 확인해 주세요.');
+    if(new Set(moves.map(x=>String(x.id))).size!==moves.length||new Set(counts.map(x=>String(x.productId))).size!==counts.length) throw error('중복 항목입니다.');
+    conn=await pool.getConnection(); await conn.beginTransaction();
+    for(const move of moves){
+      const rows=await conn.query('SELECT product_id, quantity, supplier FROM purchases WHERE purchase_id = ? FOR UPDATE',[move.id]);
+      if(!rows.length||String(rows[0].product_id)!==String(move.fromProductId)||Number(rows[0].quantity)!==Number(move.expectedQuantity)||rows[0].supplier!==move.expectedSupplier) throw error('입고 내역이 변경되었습니다. 다시 확인해 주세요.',409);
+      const target=await getActiveProduct(conn,move.toProductId);
+      const products=await conn.query('SELECT product_id,product_name,product_type FROM products WHERE product_id IN (?, ?)',[move.fromProductId,target]);
+      const source=products.find(p=>String(p.product_id)===String(move.fromProductId)),dest=products.find(p=>String(p.product_id)===target);
+      if(!source||!dest||source.product_name!==dest.product_name||source.product_type!=='single'||dest.product_type!=='set') throw error('동일 이름의 단품 입고에서 완제품 세트 입고로만 정정할 수 있습니다.');
+      await conn.query('UPDATE purchases SET product_id = ? WHERE purchase_id = ?',[target,move.id]);
+    }
+    for(const count of counts){const id=await getActiveProduct(conn,count.productId);const date=dateOnly(count.date);if(!date)throw error('실사 날짜를 확인해 주세요.');await saveFinishedStocktake(conn,id,date,Number(count.quantity),count.memo);}
+    await conn.commit();broadcast();await replyState(res,conn);
+  }catch(err){if(conn)await conn.rollback();next(err);}finally{if(conn)conn.release();}
+});
+
 app.post('/api/adjustments', async (req, res, next) => {
   let conn;
   try {
     const date = dateOnly(req.body?.date);
     if (!date) throw error('조정 날짜를 확인해 주세요.');
+    if (req.body?.direction === 'stocktake') {
+      conn = await pool.getConnection(); await conn.beginTransaction();
+      const productId = await getActiveProduct(conn,req.body?.productId);
+      await saveFinishedStocktake(conn,productId,date,Number(req.body?.quantity),req.body?.memo);
+      await conn.commit(); broadcast(); await replyState(res,conn); return;
+    }
     const quantity = integer(req.body?.quantity);
     if (quantity < 1) throw error('조정 수량은 1개 이상이어야 합니다.');
     const reason = text(req.body?.reason, 100);
@@ -673,7 +717,7 @@ app.post('/api/adjustments', async (req, res, next) => {
     );
     broadcast();
     await replyState(res, conn);
-  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+  } catch (err) { if (conn && req.body?.direction === 'stocktake') await conn.rollback(); next(err); } finally { if (conn) conn.release(); }
 });
 
 // Move misassigned adjustment records without deleting their history.
@@ -758,11 +802,13 @@ app.put('/api/import', async (req, res, next) => {
       if (!mapped) throw error('가져오기 파일에 존재하지 않는 상품을 참조하는 기록이 있습니다.');
       return mapped;
     };
+    const purchaseIdMap = new Map();
     for (const item of purchases) {
       const date = dateOnly(item.date); if (!date) throw error('가져오기 파일의 입고 날짜를 확인해 주세요.');
       const currency = item.currency === 'KRW' ? 'KRW' : 'CNY';
-      await conn.query(`INSERT INTO purchases (purchase_date, product_id, supplier, quantity, currency, unit_price, exchange_rate, shipping_cost, memo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      const purchaseInsert = await conn.query(`INSERT INTO purchases (purchase_date, product_id, supplier, quantity, currency, unit_price, exchange_rate, shipping_cost, memo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [date, resolveProduct(item.productId), text(item.supplier, 200) || null, integer(item.quantity), currency, number(item.unitPrice), currency === 'KRW' ? 1 : number(item.exchangeRate, 190), number(item.shipping), text(item.memo) || null]);
+      purchaseIdMap.set(String(item.id),String(purchaseInsert.insertId));
     }
     for (const item of costs) {
       const date = dateOnly(item.date); if (!date || !text(item.name, 200)) throw error('가져오기 파일의 비용 정보를 확인해 주세요.');
@@ -770,13 +816,22 @@ app.put('/api/import', async (req, res, next) => {
       await conn.query(`INSERT INTO costs (cost_date, cost_name, category, amount, allocation_type, product_id, memo) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [date, text(item.name, 200), text(item.category, 100) || '기타', number(item.amount), allocation, allocation === 'product' ? resolveProduct(item.productId) : null, text(item.memo) || null]);
     }
+    const saleIdMap = new Map();
     for (const item of sales) {
       const date = dateOnly(item.date); if (!date) throw error('가져오기 파일의 판매 날짜를 확인해 주세요.');
-      await conn.query(`INSERT INTO sales (sale_date, order_no, product_id, quantity, sale_price, discount, shipping_income, shipping_cost, packing_cost, platform_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      const saleInsert = await conn.query(`INSERT INTO sales (sale_date, order_no, product_id, quantity, sale_price, discount, shipping_income, shipping_cost, packing_cost, platform_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [date, text(item.orderNo, 100) || null, resolveProduct(item.productId), integer(item.quantity), number(item.salePrice), number(item.discount), number(item.shippingIncome), number(item.shippingCost), number(item.packingCost), number(item.platformFee)]);
+      saleIdMap.set(String(item.id),String(saleInsert.insertId));
     }
     for (const item of adjustments) {
       const date = dateOnly(item.date); if (!date) throw error('가져오기 파일의 재고 조정 날짜를 확인해 주세요.');
+      const count = parseFinishedStocktake(item);
+      if (count) {
+        count.purchaseIds = (count.purchaseIds || []).map(id => purchaseIdMap.get(String(id))).filter(Boolean);
+        count.saleIds = (count.saleIds || []).map(id => saleIdMap.get(String(id))).filter(Boolean);
+        await conn.query('INSERT INTO adjustments (adjustment_date, product_id, quantity_delta, reason, memo) VALUES (?, ?, ?, ?, ?)', [date,resolveProduct(item.productId),count.quantity,'완제품 실사',JSON.stringify(count)]);
+        continue;
+      }
       const qty = integer(item.quantity ?? Math.abs(item.delta));
       if (qty < 1) continue;
       const delta = (item.direction === 'increase' || Number(item.delta) > 0) ? qty : -qty;
