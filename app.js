@@ -361,7 +361,13 @@ function productFilterOptions(current, list = state.products) {
 function fillSaleFilterProduct() { const el = $('#saleFilterProduct'); if (el) el.innerHTML = productFilterOptions(saleFilters.productId); }
 function fillPurchaseFilterProduct() { const el = $('#purchaseFilterProduct'); if (el) el.innerHTML = productFilterOptions(purchaseFilters.productId); }
 
+function validDashboardMonth(value) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && Number(value.slice(0,4))>=1900; }
 function periodRange(period) {
+  if(validDashboardMonth(period)) {
+    const [year,month]=period.split('-').map(Number);
+    const lastDay=new Date(year,month,0).getDate();
+    return {from:`${period}-01`,to:`${period}-${lastDay}`};
+  }
   const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   if (period === 'thisMonth') return { from: iso(new Date(y, m, 1)), to: iso(new Date(y, m + 1, 0)) };
@@ -369,7 +375,7 @@ function periodRange(period) {
   if (period === '3months') return { from: iso(new Date(y, m - 2, 1)), to: iso(new Date(y, m + 1, 0)) };
   return { from: '', to: '' };
 }
-function periodLabel(period) { return { all: '전체', thisMonth: '이번 달', lastMonth: '지난 달', '3months': '최근 3개월' }[period] || '기간'; }
+function periodLabel(period) { if(validDashboardMonth(period))return `${period.slice(0,4)}년 ${Number(period.slice(5))}월`; return { all: '전체', thisMonth: '이번 달', lastMonth: '지난 달', '3months': '최근 3개월' }[period] || '기간'; }
 function inRange(date, from, to) { if (from && date < from) return false; if (to && date > to) return false; return true; }
 
 function purchaseMatchesFilter(p) {
@@ -468,8 +474,9 @@ function monthKey(date) { return String(date).slice(0, 7); }
 function renderMonthlyChart() {
   const el = $('#monthlyChart'); if (!el) return;
   const { statsMap } = totals();
-  const now = new Date(); const months = [];
+  const now = validDashboardMonth(dashboardPeriod)?new Date(Number(dashboardPeriod.slice(0,4)),Number(dashboardPeriod.slice(5))-1,1):new Date(); const months = [];
   for (let i = 5; i >= 0; i -= 1) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); }
+  const chartLabel=$('#chartRangeLabel');if(chartLabel)chartLabel.textContent=`${months[0]} ~ ${months[months.length-1]}`;
   const rev = {}; const prof = {};
   months.forEach((mk) => { rev[mk] = 0; prof[mk] = 0; });
   state.sales.forEach((s) => { const mk = monthKey(s.date); if (mk in rev) { const r = saleResult(s, statsMap); rev[mk] += r.netRevenue; prof[mk] += r.profit; } });
@@ -574,6 +581,9 @@ function renderDashboard() {
   $('#metricQuantityLabel').textContent = `${label} 판매 수량`;
   $$('#periodBar .chip').forEach((c) => c.classList.toggle('active', c.dataset.period === dashboardPeriod));
   renderMonthlyChart();
+  const picker=$('#dashboardMonth');
+  if(picker){picker.value=validDashboardMonth(dashboardPeriod)?dashboardPeriod:'';picker.closest('label').classList.toggle('active',validDashboardMonth(dashboardPeriod));}
+  const periodText=$('#dashboardPeriodText');if(periodText)periodText.textContent=from&&to?`${from} ~ ${to} 집계`:'전체 기록 집계';
   renderBestseller(dashboardPeriod);
 }
 function productSortKey(p) { return [p.category ? p.category : '￿￿', p.name || '', p.code || '']; }
@@ -970,7 +980,13 @@ function bindActions() {
     if (which === 'purchase') apply(purchaseFilters, ['purchaseFilterFrom', 'purchaseFilterTo'], renderPurchases);
     if (which === 'cost') apply(costFilters, ['costFilterFrom', 'costFilterTo'], renderCosts);
   }));
-  $$('#periodBar .chip').forEach((btn) => btn.addEventListener('click', () => { dashboardPeriod = btn.dataset.period; renderDashboard(); }));
+  $('#dashboardMonth').addEventListener('change',event=>{
+    const value=event.target.value;
+    if(!value){dashboardPeriod='thisMonth';selectedChartMonth='';renderDashboard();return;}
+    if(!validDashboardMonth(value))return;
+    dashboardPeriod=value;selectedChartMonth=value;renderDashboard();
+  });
+  $$('#periodBar .chip').forEach((btn) => btn.addEventListener('click', () => { dashboardPeriod = btn.dataset.period; selectedChartMonth=''; renderDashboard(); }));
   document.body.addEventListener('click', (event) => {
     const col = event.target.closest('.chart-col[data-month]');
     if (!col) return;

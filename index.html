@@ -55,6 +55,8 @@
           <button type="button" class="chip active" data-period="thisMonth">이번 달</button>
           <button type="button" class="chip" data-period="lastMonth">지난 달</button>
           <button type="button" class="chip" data-period="3months">최근 3개월</button>
+          <label class="month-picker">원하는 월 <input id="dashboardMonth" type="month" min="1900-01" max="9999-12" aria-label="대시보드 조회 연도와 월"></label>
+          <span id="dashboardPeriodText" class="dashboard-period-text" role="status" aria-live="polite"></span>
         </div>
         <div class="metric-grid dashboard-metrics">
           <article class="metric"><span>초기 투자 비용</span><strong id="metricInvestment">0원</strong><small>전체 누적 · 매입·배송·등록 비용 합계</small></article>
@@ -86,7 +88,7 @@
           </section>
         </div>
         <section class="panel dashboard-chart">
-          <div class="panel-header"><h3>월별 매출 · 운영이익</h3><span>최근 6개월 · <span class="legend-dot rev"></span>매출 <span class="legend-dot prof"></span>운영이익</span></div>
+          <div class="panel-header"><h3>월별 매출 · 운영이익</h3><span><span id="chartRangeLabel">최근 6개월</span> · <span class="legend-dot rev"></span>매출 <span class="legend-dot prof"></span>운영이익</span></div>
           <div id="monthlyChart" class="chart-wrap"></div>
         </section>
         <section class="panel">
