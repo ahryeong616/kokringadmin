@@ -5,6 +5,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 let accessKey = sessionStorage.getItem('kokring_access_key') || '';
 let eventSource;
+let historicalCostCache = new Map();
 let editingPurchaseId = '';
 let editingCostId = '';
 let editingProductId = '';
@@ -33,7 +34,7 @@ function toNum(value) { return Number(value) || 0; }
 function parseForm(form) { return Object.fromEntries(new FormData(form).entries()); }
 function productName(productId) { const product = state.products.find((item) => item.id === String(productId)); return product ? (product.option ? `${product.name} / ${product.option}` : product.name) : '삭제된 상품'; }
 function currentCnyRate() { return toNum(state.settings.defaultRate) || 190; }
-function purchaseTotal(purchase) { const total = purchase.currency === 'CNY' ? purchase.quantity * purchase.unitPrice * currentCnyRate() : purchase.quantity * purchase.unitPrice; return total + toNum(purchase.shipping); }
+function purchaseTotal(purchase) { const total = purchase.currency === 'CNY' ? purchase.quantity * purchase.unitPrice * (toNum(purchase.exchangeRate) || currentCnyRate()) : purchase.quantity * purchase.unitPrice; return total + toNum(purchase.shipping); }
 function purchaseSupplier(purchase) {
   if (purchase.supplier) return purchase.supplier;
   const product = state.products.find((item) => item.id === String(purchase.productId));
@@ -97,19 +98,19 @@ async function ensureAccess() {
   }
 }
 
-function allocatedCostsByProduct() {
-  const map = Object.fromEntries(state.products.map((product) => [product.id, 0]));
+function allocatedCostsByProduct(source=state) {
+  const map = Object.fromEntries(source.products.map((product) => [product.id, 0]));
   const qty = {}; const value = {};
-  state.purchases.forEach((purchase) => {
+  source.purchases.forEach((purchase) => {
     qty[purchase.productId] = (qty[purchase.productId] || 0) + purchase.quantity;
     value[purchase.productId] = (value[purchase.productId] || 0) + purchaseTotal(purchase);
   });
   const totalQty = Object.values(qty).reduce((sum, item) => sum + item, 0);
   const totalValue = Object.values(value).reduce((sum, item) => sum + item, 0);
-  state.costs.forEach((cost) => {
+  source.costs.filter(cost=>Finance.costInfo(state,cost).kind==='inventory').forEach((cost) => {
     if (cost.allocation === 'business') return;
     if (cost.allocation === 'product' && map[cost.productId] !== undefined) { map[cost.productId] += cost.amount; return; }
-    state.products.forEach((product) => {
+    source.products.forEach((product) => {
       if (cost.allocation === 'allQty' && totalQty > 0) map[product.id] += cost.amount * ((qty[product.id] || 0) / totalQty);
       if (cost.allocation === 'allValue' && totalValue > 0) map[product.id] += cost.amount * ((value[product.id] || 0) / totalValue);
     });
@@ -123,15 +124,19 @@ function finishedStocktake(a) {
 function inventoryStats() {
   return ComponentInventory.calculate(state, purchaseTotal, allocatedCostsByProduct());
 }
-function saleResult(sale, statsMap) {
-  const stat = statsMap[sale.productId] || { avgCost: 0 };
-  const netRevenue = sale.quantity * sale.salePrice - sale.discount + sale.shippingIncome;
-  const cogs = sale.quantity * stat.avgCost;
-  const expense = sale.shippingCost + sale.packingCost + sale.platformFee;
-  return { netRevenue, profit: netRevenue - cogs - expense };
-}
+function saleResult(sale,statsMap){return Finance.saleResult(state,sale,statsMap);}
+function financeReport(from='',to=''){return Finance.report(state,totals().statsMap,from,to,purchaseTotal);}
 function totals() {
   const stats = inventoryStats(); const statsMap = Object.fromEntries(stats.map((item) => [item.product.id, item]));
+  statsMap._saleCosts={};
+  for(const sale of state.sales){
+    if(!historicalCostCache.has(sale.date)){
+      const snapshot={...state,purchases:state.purchases.filter(p=>p.date<=sale.date),costs:state.costs.filter(c=>c.date<=sale.date)};
+      const historical=ComponentInventory.calculate(snapshot,purchaseTotal,allocatedCostsByProduct(snapshot));
+      historicalCostCache.set(sale.date,Object.fromEntries(historical.map(s=>[s.product.id,s.avgCost])));
+    }
+    statsMap._saleCosts[sale.id]=(historicalCostCache.get(sale.date)[sale.productId]||0)*sale.quantity;
+  }
   return {
     stats, statsMap,
     investment: state.purchases.reduce((sum, item) => sum + purchaseTotal(item), 0) + state.costs.reduce((sum, item) => sum + item.amount, 0),
@@ -166,11 +171,11 @@ function renderPurchaseEditRow(p) {
     <td><input class="inline-input compact" name="quantity" type="number" min="1" step="1" value="${p.quantity}" required></td>
     <td>
       <select class="inline-select compact" name="currency"><option value="CNY" ${p.currency === 'CNY' ? 'selected' : ''}>CNY</option><option value="KRW" ${p.currency === 'KRW' ? 'selected' : ''}>KRW</option></select>
-      <input class="inline-input compact" name="unitPrice" type="number" min="0" step="0.01" value="${p.unitPrice}" required>
+      <input class="inline-input compact" name="exchangeRate" type="number" min="0.01" step="0.01" value="${toNum(p.exchangeRate)||currentCnyRate()}" aria-label="입고 환율"><input class="inline-input compact" name="unitPrice" type="number" min="0" step="0.01" value="${p.unitPrice}" required>
     </td>
     <td><input class="inline-input compact" name="shipping" type="number" min="0" step="1" value="${toNum(p.shipping)}"></td>
     <td><input class="inline-input" name="memo" value="${escapeHtml(p.memo || '')}" placeholder="메모"></td>
-    <td>${money(purchaseTotal(p))}<small>CNY 기준 환율 ${number(currentCnyRate())}</small></td>
+    <td>${money(purchaseTotal(p))}<small>입고 기록 환율 ${number(toNum(p.exchangeRate)||currentCnyRate())}</small></td>
     <td><div class="row-actions"><button class="primary-button" data-save-purchase-id="${p.id}">저장</button><button class="cancel-button" data-cancel-purchase-edit>취소</button></div></td>
   </tr>`;
 }
@@ -184,10 +189,10 @@ function costCategoryOptions(selected = '') {
 }
 function costAllocationOptions(selected = '') {
   const labels = {
-    allQty: '전체 상품 수량 기준 배분',
-    allValue: '전체 매입금액 기준 배분',
-    product: '특정 상품에만 반영',
-    business: '사업 공통비로만 기록',
+    allQty: '상품 확보 원가만: 전체 수량 배분',
+    allValue: '상품 확보 원가만: 매입금액 배분',
+    product: '상품 확보 원가만: 특정 상품',
+    business: '상품 원가 배분 안 함',
   };
   return Object.entries(labels)
     .map(([value, label]) => `<option value="${value}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`)
@@ -311,9 +316,10 @@ async function submitProductForm(event) {
   } catch (err) { alert(err.message); }
 }
 function renderSaleEditRow(s) {
+  const fee=Finance.fee(state,s),m=state.finance?.sales?.[s.id]||{};
   return `<tr data-sale-edit-id="${s.id}">
     <td><input class="inline-input compact" name="date" type="date" value="${escapeHtml(s.date)}" required></td>
-    <td><input class="inline-input" name="orderNo" value="${escapeHtml(s.orderNo || '')}" placeholder="주문번호"></td>
+    <td><input class="inline-input" name="orderNo" value="${escapeHtml(s.orderNo || '')}" placeholder="주문번호"><select name="channel" aria-label="판매처">${financeOptions([['auto','주문 입력으로 판별'],['coupang','쿠팡 12%'],['smartstore','스마트스토어 5%'],['other','기타 0%']],m.channel||'auto')}</select></td>
     <td><select class="inline-select" name="productId" required>${productOptions(s.productId)}</select></td>
     <td><input class="inline-input compact" name="quantity" type="number" min="1" step="1" value="${toNum(s.quantity)}" required></td>
     <td>
@@ -324,7 +330,7 @@ function renderSaleEditRow(s) {
     <td>
       <input class="inline-input compact" name="shippingCost" type="number" min="0" step="1" value="${toNum(s.shippingCost)}" placeholder="실제 택배비">
       <input class="inline-input compact" name="packingCost" type="number" min="0" step="1" value="${toNum(s.packingCost)}" placeholder="포장비">
-      <input class="inline-input compact" name="platformFee" type="number" min="0" step="1" value="${toNum(s.platformFee)}" placeholder="수수료">
+      <input class="inline-input compact" name="platformFee" type="number" min="0" step="1" value="${fee.manual?fee.amount:0}" placeholder="실제 수수료"><select name="feeMode" aria-label="수수료 방식">${financeOptions([['auto','자동 계산'],['manual','실제 정산 금액']],fee.manual?'manual':'auto')}</select>
     </td>
     <td><div class="row-actions"><button class="primary-button" data-save-sale-id="${s.id}">저장</button><button class="cancel-button" data-cancel-sale-edit>취소</button></div></td>
   </tr>`;
@@ -437,16 +443,17 @@ function updateSalePreview() {
   if (!f.productId || !toNum(f.quantity)) { box.hidden = true; return; }
   const { statsMap } = totals();
   const draft = {
-    productId: String(f.productId), quantity: toNum(f.quantity), salePrice: toNum(f.salePrice),
+    id:'__preview', productId: String(f.productId), quantity: toNum(f.quantity), salePrice: toNum(f.salePrice),
     discount: toNum(f.discount), shippingIncome: toNum(f.shippingIncome), shippingCost: toNum(f.shippingCost),
     packingCost: toNum(f.packingCost), platformFee: toNum(f.platformFee),
   };
-  const r = saleResult(draft, statsMap);
+  const previewState={...state,finance:{...state.finance,sales:{...state.finance?.sales,__preview:{channel:f.channel||'auto',feeMode:f.feeMode||'auto',manualFee:toNum(f.platformFee)}}}};
+  const r = Finance.saleResult(previewState,draft,statsMap);
   const stat = statsMap[draft.productId];
   const stock = stat ? inventoryAvailability(stat) : 0;
   box.hidden = false;
   box.className = `form-preview ${r.profit < 0 || stock < draft.quantity ? 'bad' : 'good'}`;
-  box.innerHTML = `<span>예상 매출 <strong>${money(r.netRevenue)}</strong></span><span>예상 순이익 <strong>${money(r.profit)}</strong></span><span>판매 후 ${stat?.isSet ? '출고 가능' : '재고'} <strong>${number(stock - draft.quantity)}${stat?.isSet ? '세트' : '개'}</strong></span>`;
+  box.innerHTML = `<span>예상 매출 <strong>${money(r.netRevenue)}</strong></span><span>예상 판매이익 <strong>${money(r.profit)}</strong></span><span>판매 후 ${stat?.isSet ? '출고 가능' : '재고'} <strong>${number(stock - draft.quantity)}${stat?.isSet ? '세트' : '개'}</strong></span>`;
 }
 function autofillSalePrice() {
   const form = $('#saleForm'); if (!form) return;
@@ -466,18 +473,21 @@ function renderMonthlyChart() {
   const rev = {}; const prof = {};
   months.forEach((mk) => { rev[mk] = 0; prof[mk] = 0; });
   state.sales.forEach((s) => { const mk = monthKey(s.date); if (mk in rev) { const r = saleResult(s, statsMap); rev[mk] += r.netRevenue; prof[mk] += r.profit; } });
-  const maxVal = Math.max(1, ...months.map((mk) => Math.max(rev[mk], prof[mk], 0)));
+  months.forEach(mk=>{prof[mk]=Finance.report(state,statsMap,mk+'-01',mk+'-31',purchaseTotal).operatingProfit;});
+  const maxVal=Math.max(0,...months.map(mk=>rev[mk]),...months.map(mk=>prof[mk]));
+  const minVal=Math.min(0,...months.map(mk=>prof[mk]));
+  const scale=maxVal-minVal||1,zero=-minVal/scale*100;
   const bars = months.map((mk) => {
-    const rH = Math.max(0, (rev[mk] / maxVal) * 100); const pH = Math.max(0, (prof[mk] / maxVal) * 100);
+    const rH=Math.abs(rev[mk])/scale*100,pH=Math.abs(prof[mk])/scale*100;
     const active = mk === selectedChartMonth ? ' active' : '';
-    return `<div class="chart-col${active}" data-month="${mk}" role="button" tabindex="0" title="${Number(mk.slice(5))}월 · 매출 ${money(rev[mk])} · 순이익 ${money(prof[mk])} (클릭하면 상세)"><div class="chart-bars"><div class="bar rev" style="height:${rH}%"></div><div class="bar prof" style="height:${pH}%"></div></div><span class="chart-x">${Number(mk.slice(5))}월</span></div>`;
+    return `<div class="chart-col${active}" data-month="${mk}" role="button" tabindex="0" title="${Number(mk.slice(5))}월 · 매출 ${money(rev[mk])} · 운영이익 ${money(prof[mk])} (클릭하면 상세)"><div class="chart-bars finance-chart-bars"><div class="finance-zero" style="bottom:${zero}%"></div><div class="bar rev" style="height:${rH}%;bottom:${rev[mk]>=0?zero:zero-rH}%"></div><div class="bar prof ${prof[mk]<0?'negative':''}" style="height:${pH}%;bottom:${prof[mk]>=0?zero:zero-pH}%"></div></div><span class="chart-x">${Number(mk.slice(5))}월</span></div>`;
   }).join('');
   el.innerHTML = `<div class="chart-bars-row">${bars}</div><div id="monthlyDetail" class="chart-detail"></div>`;
   renderMonthlyDetail(selectedChartMonth);
 }
 function renderMonthlyDetail(mk) {
   const box = $('#monthlyDetail'); if (!box) return;
-  if (!mk) { box.innerHTML = '<span class="chart-hint">막대(월)를 클릭하면 그 달의 매출·순이익과 많이 팔린 상품이 여기에 나옵니다.</span>'; return; }
+  if (!mk) { box.innerHTML = '<span class="chart-hint">막대(월)를 클릭하면 그 달의 매출·운영이익과 많이 팔린 상품이 여기에 나옵니다.</span>'; return; }
   const { statsMap } = totals();
   const sales = state.sales.filter((s) => monthKey(s.date) === mk);
   const rev = sales.reduce((a, s) => a + saleResult(s, statsMap).netRevenue, 0);
@@ -485,9 +495,10 @@ function renderMonthlyDetail(mk) {
   const map = {};
   sales.forEach((s) => { const r = saleResult(s, statsMap); if (!map[s.productId]) map[s.productId] = { qty: 0, profit: 0 }; map[s.productId].qty += s.quantity; map[s.productId].profit += r.profit; });
   const top = Object.entries(map).sort((a, b) => b[1].qty - a[1].qty).slice(0, 6);
+  const detailFinance=Finance.report(state,statsMap,mk+'-01',mk+'-31',purchaseTotal);
   const label = `${Number(mk.slice(5))}월`;
   const rows = top.length ? top.map(([pid, v]) => `<tr><td>${productName(pid)}</td><td>${number(v.qty)}개</td><td class="${v.profit < 0 ? 'money-bad' : ''}">${money(v.profit)}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">이 달은 판매가 없습니다.</td></tr>';
-  box.innerHTML = `<div class="chart-detail-head"><strong>${label}</strong> · 매출 <strong>${money(rev)}</strong> · 순이익 <strong>${money(prof)}</strong> · 판매 ${sales.length}건</div><div class="table-wrap"><table><thead><tr><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  box.innerHTML = `<div class="chart-detail-head"><strong>${label}</strong> · 매출 <strong>${money(rev)}</strong> · 판매이익 <strong>${money(prof)}</strong> · 월 운영이익 <strong>${money(detailFinance.operatingProfit)}</strong> · 판매 ${sales.length}건</div><div class="table-wrap"><table><thead><tr><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function renderBestseller(period) {
   const { statsMap } = totals();
@@ -550,6 +561,7 @@ function renderDashboard() {
   const periodSales = state.sales.filter((s) => inRange(s.date, from, to));
   const pRevenue = periodSales.reduce((acc, s) => acc + saleResult(s, statsMap).netRevenue, 0);
   const pProfit = periodSales.reduce((acc, s) => acc + saleResult(s, statsMap).profit, 0);
+  renderFinanceSummary(Finance.report(state,statsMap,from,to,purchaseTotal));
   $('#metricInvestment').textContent = money(sum.investment);
   $('#metricInventoryValue').textContent = money(sum.inventoryValue);
   $('#metricRevenue').textContent = money(pRevenue);
@@ -558,7 +570,7 @@ function renderDashboard() {
   renderDashboardFocus(sum.stats);
   const label = periodLabel(dashboardPeriod);
   $('#metricRevenueLabel').textContent = `${label} 매출`;
-  $('#metricProfitLabel').textContent = `${label} 순이익`;
+  $('#metricProfitLabel').textContent = `${label} 판매이익`;
   $('#metricQuantityLabel').textContent = `${label} 판매 수량`;
   $$('#periodBar .chip').forEach((c) => c.classList.toggle('active', c.dataset.period === dashboardPeriod));
   renderMonthlyChart();
@@ -633,7 +645,7 @@ function renderCosts() {
   $('#costCount').textContent = list.length !== state.costs.length ? `${list.length}건 / 전체 ${state.costs.length}건` : `${state.costs.length}건`;
   $('#costRows').innerHTML = list.length ? list.map((c) => {
     if (String(c.id) === String(editingCostId)) return renderCostEditRow(c);
-    return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.memo || '-')}</small></td><td>${escapeHtml(c.category)}</td><td>${labels[c.allocation]}${c.productId ? ` · ${productName(c.productId)}` : ''}</td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
+    return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.memo || '-')}</small></td><td>${escapeHtml(c.category)}</td><td>${({shipping:'월 택배비',operating:'월 운영비',packaging:'포장재 구매 · 사용량 차감',inventory:'상품 확보 원가'})[Finance.costInfo(state,c).kind]}<small>${Finance.costInfo(state,c).month}${Finance.costInfo(state,c).kind==='inventory'?' · '+labels[c.allocation]:''}</small></td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
   }).join('') : emptyRow(6, state.costs.length ? '조건에 맞는 비용 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderSales() {
@@ -651,7 +663,7 @@ function renderSales() {
   $('#saleRows').innerHTML = filtered.length ? filtered.slice(start, start + salesPageSize).map((s) => {
     if (String(s.id) === String(editingSaleId)) return renderSaleEditRow(s);
     const r = saleResult(s, statsMap);
-    return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${escapeHtml(s.orderNo || '-')}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.netRevenue)}</td><td class="${r.profit < 0 ? 'money-bad' : ''}">${money(r.profit)}</td><td>${saleActionButtons(s.id)}</td></tr>`;
+    return `<tr><td>${dateFormatter.format(new Date(s.date))}</td><td>${escapeHtml(s.orderNo || '-')}</td><td>${productName(s.productId)}</td><td>${number(s.quantity)}개</td><td>${money(r.netRevenue)}</td><td class="${r.profit < 0 ? 'money-bad' : ''}">${money(r.profit)}<small>수수료 ${money(r.fee)}${r.feeInfo.unknown?' · 판매처 미확인':''}</small></td><td>${saleActionButtons(s.id)}</td></tr>`;
   }).join('') : emptyRow(7, state.sales.length ? '조건에 맞는 판매 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
   $$('.sales-pagination').forEach((nav) => {
     nav.innerHTML = `<span role="status">총 ${number(filtered.length)}건 · ${filtered.length ? start + 1 : 0}–${Math.min(start + salesPageSize, filtered.length)}건 · 최신순</span>
@@ -683,14 +695,26 @@ function renderInventory() {
   }).join('') : emptyRow(11,'조건에 맞는 상품이 없습니다.');
 
 }
-function render() { $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); refreshComponentSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderAdjustments(); renderInventory(); updateSalePreview(); }
+function render() { historicalCostCache.clear(); $('#defaultRate').value = state.settings.defaultRate; fillProductSelects(); refreshComponentSelects(); renderDashboard(); renderProducts(); renderPurchases(); renderCosts(); renderSales(); renderAdjustments(); renderInventory(); renderFinanceTools(); updateSalePreview(); }
 
 function bindNavigation() { $$('.nav-button').forEach((button) => button.addEventListener('click', () => { $$('.nav-button').forEach((item) => item.classList.remove('active')); $$('.view').forEach((view) => view.classList.remove('active-view')); button.classList.add('active'); $(`#${button.dataset.view}`).classList.add('active-view'); $('#viewTitle').textContent = (button.childNodes[0]?.textContent || button.textContent).trim(); })); }
-function handleForm(selector, endpoint) { $(selector).addEventListener('submit', async (event) => { event.preventDefault(); try { const next = await api(endpoint, { method: 'POST', body: JSON.stringify(parseForm(event.target)) }); applyState(next); event.target.reset(); const dateInput = event.target.querySelector('input[type="date"]'); if (dateInput) dateInput.value = today(); } catch (err) { alert(err.message); } }); }
+function formRequest(form){const body=parseForm(form);if(form.id==='purchaseForm'&&!toNum(body.exchangeRate))body.exchangeRate=currentCnyRate();return body;}
+function handleForm(selector, endpoint) { $(selector).addEventListener('submit', async (event) => { event.preventDefault(); try { const next = await api(endpoint, { method: 'POST', body: JSON.stringify(formRequest(event.target)) }); applyState(next); event.target.reset(); if(event.target.id==='saleForm')event.target.querySelector('[name="platformFee"]').disabled=true; const dateInput = event.target.querySelector('input[type="date"]'); if (dateInput) dateInput.value = today(); } catch (err) { alert(err.message); } }); }
 function bindForms() { $$('form input[type="date"]').forEach((input) => { input.value = today(); }); $('#productForm')?.addEventListener('submit', submitProductForm); handleForm('#purchaseForm', '/api/purchases'); handleForm('#costForm', '/api/costs'); handleForm('#saleForm', '/api/sales'); handleForm('#adjustmentForm', '/api/adjustments'); }
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
+  const feeForm=$('#saleForm'),syncFee=()=>{feeForm.querySelector('[name="platformFee"]').disabled=feeForm.querySelector('[name="feeMode"]').value!=='manual';};
+  syncFee();feeForm.querySelector('[name="feeMode"]').addEventListener('change',()=>{syncFee();updateSalePreview();});
+  for(const [formId,kind] of [['packagingUsageForm','usage'],['cashEntryForm','cash']]){
+    $('#'+formId).addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('button[type="submit"]');button.disabled=true;try{applyState(await api('/api/finance/'+kind,{method:'POST',body:JSON.stringify(parseForm(form))}));form.reset();form.querySelector('[name="date"]').value=today();}catch(err){alert(err.message);}finally{button.disabled=false;}});
+  }
+  document.body.addEventListener('click',async event=>{
+    const save=event.target.closest('[data-finance-save]');
+    if(save){const row=save.closest('[data-finance-row]'),body=Object.fromEntries([...row.querySelectorAll('[name]')].map(x=>[x.name,x.value]));save.disabled=true;try{applyState(await api(`/api/finance/${row.dataset.financeKind}/${row.dataset.financeRow}`,{method:'PATCH',body:JSON.stringify(body)}));}catch(err){alert(err.message);save.disabled=false;}return;}
+    const del=event.target.closest('[data-finance-delete]');if(!del)return;if(!confirm('이 입출금 또는 포장재 사용 기록을 삭제할까요?'))return;try{applyState(await api(`/api/finance/${del.dataset.financeKind}/${del.dataset.financeDelete}`,{method:'DELETE'}));}catch(err){alert(err.message);}
+  });
+  $('#financeSaleFilter').addEventListener('change',renderFinanceTools);
   document.body.addEventListener('change',async event=>{
     const select=event.target.closest('[data-restock-id]');if(!select)return;
     const product=state.products.find(p=>p.id===select.dataset.restockId),previous=product?.restockStatus || 'active';

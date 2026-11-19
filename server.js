@@ -1,6 +1,8 @@
 require('dotenv').config();
 
 const path = require('path');
+const Finance = require('./finance-core');
+const { randomUUID } = require('node:crypto');
 const express = require('express');
 const mariadb = require('mariadb');
 
@@ -105,6 +107,7 @@ async function ensureSchema() {
   let conn;
   try {
     conn = await pool.getConnection();
+    await conn.query(`CREATE TABLE IF NOT EXISTS finance_meta (kind VARCHAR(20) NOT NULL, record_id VARCHAR(64) NOT NULL, payload MEDIUMTEXT NOT NULL, PRIMARY KEY(kind,record_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     await conn.query(`
       CREATE TABLE IF NOT EXISTS app_settings (
         setting_key VARCHAR(50) NOT NULL PRIMARY KEY,
@@ -280,6 +283,9 @@ async function readState(conn) {
     direction: Number(row.quantity_delta) < 0 ? 'decrease' : 'increase',
     quantity: Math.abs(Number(row.quantity_delta) || 0), reason: row.reason || '', memo: row.memo || '',
   }));
+  state.finance = {costs:{},sales:{},usage:{},cash:{}};
+  const financeRows = await conn.query('SELECT kind,record_id,payload FROM finance_meta');
+  for(const row of financeRows){if(state.finance[row.kind]){try{state.finance[row.kind][String(row.record_id)]=JSON.parse(row.payload);}catch(_){}}}
   return state;
 }
 
@@ -567,24 +573,94 @@ app.delete('/api/purchases/:id', async (req, res, next) => {
   } catch (err) { next(err); } finally { if (conn) conn.release(); }
 });
 
+function financeInput(kind,body={}){
+  if(kind==='sales'){
+    if(body.channel===undefined)return null;
+    const channel=body.channel||'auto',feeMode=body.feeMode||'auto',manualFee=Number(body.platformFee)||0;
+    if(!['auto','coupang','smartstore','other'].includes(channel)||!['auto','manual'].includes(feeMode)||!Number.isFinite(manualFee)||manualFee<0)throw error('판매처·수수료 입력을 확인해 주세요.');
+    return {channel,feeMode,manualFee};
+  }
+  if(body.expenseKind===undefined)return null;
+  const kindValue=body.expenseKind||'auto',month=String(body.expenseMonth||''),quantity=Number(body.packageQuantity)||0;
+  if(!['auto','operating','shipping','packaging','inventory'].includes(kindValue)||month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||!Number.isSafeInteger(quantity)||quantity<0)throw error('비용 유형·귀속월·구매 수량을 확인해 주세요.');
+  return {kind:kindValue,month,quantity};
+}
+async function writeFinance(conn,kind,id,payload){
+  await conn.query('INSERT INTO finance_meta (kind,record_id,payload) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload)',[kind,String(id),JSON.stringify(payload)]);
+}
+async function validateFinance(conn,kind,id,body){
+  const state=await readState(conn);
+  if(kind==='costs'){
+    const cost=state.costs.find(c=>c.id===String(id));if(!cost)throw error('비용 기록을 찾을 수 없습니다.',404);
+    const kindValue=body.kind||'auto';if(!['auto','operating','shipping','packaging','inventory'].includes(kindValue))throw error('비용 처리 방식을 확인해 주세요.');
+    const month=String(body.month||'');if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw error('비용 귀속월을 확인해 주세요.');
+    const quantity=Number(body.quantity)||0;if(!Number.isSafeInteger(quantity)||quantity<0)throw error('포장재 구매 수량은 0 이상의 정수입니다.');
+    const used=Object.values(state.finance.usage).filter(u=>u.costId===String(id)).reduce((n,u)=>n+u.quantity,0);
+    if(used&&(kindValue!=='packaging'||quantity<used))throw error('이미 사용한 포장재 수량보다 구매 수량이 적거나 유형이 변경되었습니다.');
+    return {kind:kindValue,month,quantity};
+  }
+  if(kind==='sales'){
+    if(!state.sales.some(s=>s.id===String(id)))throw error('판매 기록을 찾을 수 없습니다.',404);
+    const channel=body.channel||'auto',feeMode=body.feeMode||'auto';
+    if(!['auto','coupang','smartstore','other'].includes(channel)||!['auto','manual'].includes(feeMode))throw error('판매처와 수수료 방식을 확인해 주세요.');
+    const manualFee=Number(body.manualFee)||0;if(!Number.isFinite(manualFee)||manualFee<0)throw error('실제 수수료를 확인해 주세요.');
+    return {channel,feeMode,manualFee};
+  }
+  if(kind==='cash'){
+    const date=dateOnly(body.date),amount=Number(body.amount);if(!date||!['in','out'].includes(body.direction)||!Number.isFinite(amount)||amount<=0)throw error('입출금 날짜·구분·금액을 확인해 주세요.');
+    return {date,direction:body.direction,amount,note:text(body.note,500)};
+  }
+  if(kind==='usage'){
+    const costId=String(body.costId),cost=state.costs.find(c=>c.id===costId),quantity=Number(body.quantity),date=dateOnly(body.date);
+    if(!cost||!date||date<cost.date||!Number.isSafeInteger(quantity)||quantity<1)throw error('포장재·사용일·수량을 확인해 주세요. 구매일 전 사용은 등록할 수 없습니다.');
+    const info=Finance.costInfo(state,cost);if(info.kind!=='packaging'||!info.quantity)throw error('먼저 포장재 구매 수량을 입력해 주세요.');
+    const others=Object.entries(state.finance.usage).filter(([key,u])=>key!==String(id)&&u.costId===costId).map(([,u])=>u);
+    if(others.reduce((n,u)=>n+u.quantity,0)+quantity>info.quantity)throw error('포장재 구매 수량을 초과했습니다.');
+    const orderRef=text(body.orderRef,100);if(orderRef&&others.some(u=>u.orderRef===orderRef))throw error('이 포장재에 같은 주문의 사용 내역이 이미 있습니다.');
+    return {costId,date,quantity,orderRef,note:text(body.note,500)};
+  }
+  throw error('지원하지 않는 재무 기록입니다.');
+}
+app.post('/api/finance/:kind',async(req,res,next)=>{let conn;try{
+  if(!['cash','usage'].includes(req.params.kind))throw error('기록 구분을 확인해 주세요.');
+  conn=await pool.getConnection();await conn.beginTransaction();
+  // Lock purchase lots so simultaneous usage cannot exceed purchased quantity.
+  if(req.params.kind==='usage')await conn.query('SELECT cost_id FROM costs WHERE cost_id = ? FOR UPDATE',[req.body?.costId]);
+  const id=randomUUID(),payload=await validateFinance(conn,req.params.kind,id,req.body);await writeFinance(conn,req.params.kind,id,payload);await conn.commit();broadcast();await replyState(res,conn);
+}catch(err){if(conn)await conn.rollback();next(err);}finally{if(conn)conn.release();}});
+app.patch('/api/finance/:kind/:id',async(req,res,next)=>{let conn;try{
+  if(!['sales','costs'].includes(req.params.kind))throw error('판매·비용 설정만 변경할 수 있습니다.');
+  conn=await pool.getConnection();await conn.beginTransaction();
+  if(req.params.kind==='costs')await conn.query('SELECT cost_id FROM costs WHERE cost_id = ? FOR UPDATE',[req.params.id]);
+  const payload=await validateFinance(conn,req.params.kind,req.params.id,req.body);await writeFinance(conn,req.params.kind,req.params.id,payload);await conn.commit();broadcast();await replyState(res,conn);
+}catch(err){if(conn)await conn.rollback();next(err);}finally{if(conn)conn.release();}});
+app.delete('/api/finance/:kind/:id',async(req,res,next)=>{let conn;try{
+  if(!['cash','usage'].includes(req.params.kind))throw error('입출금·사용 기록만 삭제할 수 있습니다.');
+  conn=await pool.getConnection();await conn.query('DELETE FROM finance_meta WHERE kind = ? AND record_id = ?',[req.params.kind,req.params.id]);broadcast();await replyState(res,conn);
+}catch(err){next(err);}finally{if(conn)conn.release();}});
+
 app.post('/api/costs', async (req, res, next) => {
   let conn;
   try {
+    const financeData=financeInput('costs',req.body);
     const date = dateOnly(req.body?.date);
     const name = text(req.body?.name, 200);
     if (!date || !name) throw error('비용 날짜와 비용명을 확인해 주세요.');
     const allocation = ['allQty', 'allValue', 'product', 'business'].includes(req.body?.allocation)
       ? req.body.allocation : 'business';
     conn = await pool.getConnection();
+    await conn.beginTransaction();
     const productId = allocation === 'product' ? await getActiveProduct(conn, req.body?.productId) : null;
-    await conn.query(
+    const inserted = await conn.query(
       `INSERT INTO costs (cost_date, cost_name, category, amount, allocation_type, product_id, memo)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [date, name, text(req.body?.category, 100) || '기타', number(req.body?.amount), allocation, productId, text(req.body?.memo) || null],
     );
+    if(financeData)await writeFinance(conn,'costs',inserted.insertId,financeData);
+    await conn.commit();
     broadcast();
     await replyState(res, conn);
-  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+  } catch (err) { if(conn)await conn.rollback();next(err); } finally { if (conn) conn.release(); }
 });
 
 app.patch('/api/costs/:id', async (req, res, next) => {
@@ -613,6 +689,8 @@ app.delete('/api/costs/:id', async (req, res, next) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    const used=await conn.query("SELECT record_id FROM finance_meta WHERE kind = 'usage' AND JSON_UNQUOTE(JSON_EXTRACT(payload,'$.costId')) = ?",[req.params.id]);
+    if(used.length)throw error('포장재 사용 기록을 먼저 정리해 주세요.');
     await conn.query('DELETE FROM costs WHERE cost_id = ?', [req.params.id]);
     broadcast();
     await replyState(res, conn);
@@ -622,29 +700,35 @@ app.delete('/api/costs/:id', async (req, res, next) => {
 app.post('/api/sales', async (req, res, next) => {
   let conn;
   try {
+    const financeData=financeInput('sales',req.body);
     const date = dateOnly(req.body?.date);
     if (!date) throw error('판매 날짜를 확인해 주세요.');
     if (integer(req.body?.quantity) < 1) throw error('판매 수량은 1개 이상이어야 합니다.');
     conn = await pool.getConnection();
+    await conn.beginTransaction();
     const productId = await getActiveProduct(conn, req.body?.productId);
-    await conn.query(
+    const inserted = await conn.query(
       `INSERT INTO sales (sale_date, order_no, product_id, quantity, sale_price, discount, shipping_income, shipping_cost, packing_cost, platform_fee)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [date, text(req.body?.orderNo, 100) || null, productId, integer(req.body?.quantity), number(req.body?.salePrice),
        number(req.body?.discount), number(req.body?.shippingIncome), number(req.body?.shippingCost), number(req.body?.packingCost), number(req.body?.platformFee)],
     );
+    if(financeData)await writeFinance(conn,'sales',inserted.insertId,financeData);
+    await conn.commit();
     broadcast();
     await replyState(res, conn);
-  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+  } catch (err) { if(conn)await conn.rollback();next(err); } finally { if (conn) conn.release(); }
 });
 
 app.patch('/api/sales/:id', async (req, res, next) => {
   let conn;
   try {
+    const financeData=financeInput('sales',req.body);
     const date = dateOnly(req.body?.date);
     if (!date) throw error('판매 날짜를 확인해 주세요.');
     if (integer(req.body?.quantity) < 1) throw error('판매 수량은 1개 이상이어야 합니다.');
     conn = await pool.getConnection();
+    await conn.beginTransaction();
     const productId = await getActiveProduct(conn, req.body?.productId);
     const result = await conn.query(
       `UPDATE sales
@@ -656,9 +740,11 @@ app.patch('/api/sales/:id', async (req, res, next) => {
        number(req.body?.packingCost), number(req.body?.platformFee), req.params.id],
     );
     if (Number(result.affectedRows) === 0) throw error('수정할 판매 기록을 찾을 수 없습니다.', 404);
+    if(financeData)await writeFinance(conn,'sales',req.params.id,financeData);
+    await conn.commit();
     broadcast();
     await replyState(res, conn);
-  } catch (err) { next(err); } finally { if (conn) conn.release(); }
+  } catch (err) { if(conn)await conn.rollback();next(err); } finally { if (conn) conn.release(); }
 });
 
 app.delete('/api/sales/:id', async (req, res, next) => {
@@ -748,6 +834,7 @@ app.put('/api/import', async (req, res, next) => {
     const adjustments = Array.isArray(incoming.adjustments) ? incoming.adjustments : [];
     conn = await pool.getConnection();
     await conn.beginTransaction();
+    await conn.query('DELETE FROM finance_meta');
     await conn.query('DELETE FROM product_components');
     await conn.query('DELETE FROM adjustments');
     await conn.query('DELETE FROM sales');
@@ -793,11 +880,13 @@ app.put('/api/import', async (req, res, next) => {
         [date, resolveProduct(item.productId), text(item.supplier, 200) || null, integer(item.quantity), currency, number(item.unitPrice), currency === 'KRW' ? 1 : number(item.exchangeRate, 190), number(item.shipping), text(item.memo) || null]);
       purchaseIdMap.set(String(item.id),String(purchaseInsert.insertId));
     }
+    const costIdMap = new Map();
     for (const item of costs) {
       const date = dateOnly(item.date); if (!date || !text(item.name, 200)) throw error('가져오기 파일의 비용 정보를 확인해 주세요.');
       const allocation = ['allQty', 'allValue', 'product', 'business'].includes(item.allocation) ? item.allocation : 'business';
-      await conn.query(`INSERT INTO costs (cost_date, cost_name, category, amount, allocation_type, product_id, memo) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      const costInsert = await conn.query(`INSERT INTO costs (cost_date, cost_name, category, amount, allocation_type, product_id, memo) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [date, text(item.name, 200), text(item.category, 100) || '기타', number(item.amount), allocation, allocation === 'product' ? resolveProduct(item.productId) : null, text(item.memo) || null]);
+      costIdMap.set(String(item.id),String(costInsert.insertId));
     }
     const saleIdMap = new Map();
     for (const item of sales) {
@@ -820,6 +909,12 @@ app.put('/api/import', async (req, res, next) => {
       const delta = (item.direction === 'increase' || Number(item.delta) > 0) ? qty : -qty;
       await conn.query('INSERT INTO adjustments (adjustment_date, product_id, quantity_delta, reason, memo) VALUES (?, ?, ?, ?, ?)',
         [date, resolveProduct(item.productId), delta, text(item.reason, 100) || '조정', text(item.memo) || null]);
+    }
+    const finance=incoming.finance||{};
+    for(const kind of ['costs','sales','cash','usage'])for(const [oldId,payload] of Object.entries(finance[kind]||{})){
+      const id=kind==='costs'?costIdMap.get(oldId):kind==='sales'?saleIdMap.get(oldId):oldId;if(!id)continue;
+      const data={...payload};if(kind==='usage'){data.costId=costIdMap.get(String(data.costId));if(!data.costId)continue;}
+      await writeFinance(conn,kind,id,data);
     }
     await conn.commit();
     broadcast();

@@ -34,7 +34,7 @@ test('restock API validates enum, writes only policy and replies with synchroniz
 test('dashboard focus renders only five rows, supports full list and preserves separate counts',()=>{
  const nodes=new Map();const node=key=>{if(!nodes.has(key))nodes.set(key,{setAttribute(){},classList:{toggle(){}}});return nodes.get(key)};
  const data={settings:{defaultRate:190},products:[],purchases:[],sales:[],costs:[],adjustments:[]};
- const c=vm.createContext({Intl,Date,ComponentInventory:require('../inventory-core'),DashboardInventory:core,sessionStorage:{getItem:()=>''},document:{querySelector:node,querySelectorAll:()=>[]},data,rows:Array.from({length:7},(_,i)=>make(String(i),0))});
+ const c=vm.createContext({Finance:require('../finance-core'),Intl,Date,ComponentInventory:require('../inventory-core'),DashboardInventory:core,sessionStorage:{getItem:()=>''},document:{querySelector:node,querySelectorAll:()=>[]},data,rows:Array.from({length:7},(_,i)=>make(String(i),0))});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../app.js'),'utf8').replace(/init\(\);\s*$/,''),c);vm.runInContext('Object.assign(state,data);state.products=rows.map(x=>x.product);renderDashboardFocus(rows)',c);
  assert.equal((node('#dashboardFocusRows').innerHTML.match(/<article/g)||[]).length,5);assert.equal(node('#metricRestock').textContent,'7종');vm.runInContext('dashboardExpanded=true;renderDashboardFocus(rows)',c);assert.equal((node('#dashboardFocusRows').innerHTML.match(/<article/g)||[]).length,7);vm.runInContext("dashboardFocusTab='excluded';renderDashboardFocus(rows)",c);assert(node('#dashboardFocusRows').innerHTML.includes('보류·제외한 상품이 없습니다'));
 });
