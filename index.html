@@ -61,17 +61,17 @@
         <div class="metric-grid dashboard-metrics">
           <article class="metric"><span>초기 투자 비용</span><strong id="metricInvestment">0원</strong><small>전체 누적 · 매입·배송·등록 비용 합계</small></article>
           <article class="metric"><span id="metricRevenueLabel">매출</span><strong id="metricRevenue">0원</strong><small>선택 기간의 매출</small></article>
-          <article class="metric"><span id="metricProfitLabel">판매이익</span><strong id="metricProfit">0원</strong><small>상품 원가·수수료 반영 · 월 비용 차감 전</small></article>
+          <article class="metric"><span id="metricProfitLabel">최종 순이익</span><strong id="metricProfit">0원</strong><small>상품 매입 원가·수수료·입력한 모든 비용 차감 후</small></article>
           <article class="metric"><span id="metricQuantityLabel">판매 수량</span><strong id="metricQuantity">0개</strong><small>선택 기간의 판매 수량</small></article>
           <button type="button" class="metric metric-action" data-dashboard-tab="restock"><span>재입고 필요</span><strong id="metricRestock">0종</strong><small>현재 기준 · 재입고 제외 상품 제외</small></button>
         </div>
         <section class="panel finance-summary">
-          <div class="panel-header"><h3>판매이익 → 월 운영이익</h3><span>선택 기간 · 고객 발송비와 포장재 사용비는 여기서 차감</span></div>
-          <div class="finance-breakdown"><div><span>판매이익</span><strong id="financeSalesProfit">0원</strong></div><div><span>− 해당 월 택배비</span><strong id="financeShipping">0원</strong></div><div><span>− 사용한 포장재</span><strong id="financePacking">0원</strong></div><div><button type="button" id="financeOperatingToggle" class="finance-expense-toggle" aria-expanded="false" aria-controls="operatingCostDetail"><span>− 기타 운영비</span><strong id="financeOperating">0원</strong><span id="operatingCostToggleLabel" class="expense-toggle-label">지출 내역 보기 ▾</span></button></div><div class="finance-total"><span>월 운영이익</span><strong id="financeOperatingProfit">0원</strong></div></div>
+          <div class="panel-header"><h3>판매이익 − 운영비 = 최종 순이익</h3><span>모든 비용을 입력 날짜가 속한 달에 전액 차감합니다.</span></div>
+          <div class="finance-breakdown finance-simple"><div><span>판매이익</span><strong id="financeSalesProfit">0원</strong></div><div><button type="button" id="financeOperatingToggle" class="finance-expense-toggle" aria-expanded="false" aria-controls="operatingCostDetail"><span>− 운영비</span><strong id="financeOperating">0원</strong><span id="operatingCostToggleLabel" class="expense-toggle-label">지출 내역 보기 ▾</span></button></div><div class="finance-total"><span>최종 순이익</span><strong id="financeOperatingProfit">0원</strong></div></div>
           <section id="operatingCostDetail" class="operating-cost-detail" aria-labelledby="operatingCostTitle" hidden>
-            <div class="panel-header"><h4 id="operatingCostTitle">기타 운영비 지출 내역</h4><span id="operatingCostSummary"></span></div>
-            <p>대시보드에서 선택한 기간의 비용 귀속월 기준입니다. 등록일이 다른 비용도 해당 귀속월에 포함됩니다.</p>
-            <div class="table-wrap"><table><thead><tr><th>등록일</th><th>비용 귀속월</th><th>사용 항목 / 구분</th><th>메모</th><th class="operating-cost-amount">금액</th></tr></thead><tbody id="operatingCostRows"></tbody></table></div>
+            <div class="panel-header"><h4 id="operatingCostTitle">운영비 지출 내역</h4><span id="operatingCostSummary"></span></div>
+            <p>박스·택배비·광고비 등 비용에 입력한 모든 항목을 입력 날짜 기준으로 전액 차감합니다. 포장재 사용량이나 별도 귀속월 설정은 적용하지 않습니다.</p>
+            <div class="table-wrap"><table><thead><tr><th>등록일</th><th>차감 월</th><th>사용 항목 / 구분</th><th>메모</th><th class="operating-cost-amount">금액</th></tr></thead><tbody id="operatingCostRows"></tbody></table></div>
           </section>
           <div class="finance-cash"><span>입출금 기록 기준 · 실제 입금 <strong id="financeCashIn">미등록</strong></span><span>실제 출금 <strong id="financeCashOut">미등록</strong></span><span>현금 수지 <strong id="financeCashNet">미등록</strong></span><span>참고: 매입·비용 등록액 <strong id="financeRecordedSpending">0원</strong></span></div>
           <div id="financeWarnings" class="finance-warnings" role="status"></div>
@@ -93,7 +93,7 @@
           </section>
         </div>
         <section class="panel dashboard-chart">
-          <div class="panel-header"><h3>월별 매출 · 운영이익</h3><span><span id="chartRangeLabel">최근 6개월</span> · <span class="legend-dot rev"></span>매출 <span class="legend-dot prof"></span>운영이익</span></div>
+          <div class="panel-header"><h3>월별 매출 · 최종 순이익</h3><span><span id="chartRangeLabel">최근 6개월</span> · <span class="legend-dot rev"></span>매출 <span class="legend-dot prof"></span>최종 순이익</span></div>
           <div id="monthlyChart" class="chart-wrap"></div>
         </section>
         <section class="panel">
@@ -190,18 +190,15 @@
 
       <section id="costs" class="view">
         <section class="panel">
-          <div class="panel-header"><h3>부대비용 등록</h3><span>택배비, 포장비, 로고 제작비 등을 배분합니다.</span></div>
+          <div class="panel-header"><h3>운영비 등록</h3><span>박스·택배비·광고비 등 모든 비용은 입력 날짜의 월에 전액 차감됩니다.</span></div>
           <form id="costForm" class="form-grid">
             <input name="date" type="date" required>
             <input name="name" placeholder="비용명" required>
             <select name="category"><option>포장비</option><option>로고/스티커</option><option>택배/배송</option><option>관세/부가세</option><option>촬영/마케팅</option><option>기타</option></select>
             <input name="amount" type="number" min="0" step="1" placeholder="금액" required>
-            <select name="allocation"><option value="allQty">전체 상품 수량 기준 배분</option><option value="allValue">전체 매입금액 기준 배분</option><option value="product">특정 상품에만 반영</option><option value="business">사업 공통비로만 기록</option></select>
-            <select name="productId"></select>
+            <input type="hidden" name="allocation" value="business">
             <input name="memo" placeholder="메모">
 
-                      <select name="expenseKind" aria-label="비용 처리"><option value="auto">항목명으로 분류 (저장 후 확인)</option><option value="operating">운영비 · 해당 월 전액 차감</option><option value="shipping">고객 발송 택배비 · 귀속월 차감</option><option value="packaging">포장재 구매 · 사용량만 비용</option><option value="inventory">수입 운임 등 상품 확보 원가</option></select>
-            <label>비용 귀속월 <input name="expenseMonth" type="month"></label><input name="packageQuantity" type="number" min="0" step="1" placeholder="포장재 구매 수량 (개/매)">
             <button class="primary-button" type="submit">비용 추가</button>
           </form>
         </section>
@@ -215,13 +212,13 @@
             <span class="quick-dates" data-filter="cost"><button type="button" class="chip sm" data-range="today">오늘</button><button type="button" class="chip sm" data-range="week">이번주</button><button type="button" class="chip sm" data-range="month">이번달</button></span>
             <button id="costFilterReset" type="button" class="ghost-button">필터 초기화</button>
           </div>
-          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>항목</th><th>구분</th><th>처리 / 귀속월</th><th>금액</th><th></th></tr></thead><tbody id="costRows"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>항목</th><th>구분</th><th>차감 기준 / 월</th><th>금액</th><th></th></tr></thead><tbody id="costRows"></tbody></table></div>
         </section>
       <section class="finance-tools">
-        <details class="panel"><summary>비용 처리·귀속월·포장재 구매 수량 설정</summary><p class="finance-help">결제·등록일과 비용 귀속월을 구분합니다. 광고비는 운영비, 고객 택배비는 배송 월, 박스·스티커는 포장재로 설정하세요. 상품 확보 원가만 기존 원가 배분 방식을 사용합니다.</p><div class="table-wrap"><table><thead><tr><th>비용 기록</th><th>처리 방식</th><th>귀속월</th><th>포장재 구매 수량</th><th></th></tr></thead><tbody id="financeCostRows"></tbody></table></div></details>
+        <details class="panel" hidden><summary>이전 비용 설정 (참고용)</summary><p class="finance-help">결제·등록일과 비용 귀속월을 구분합니다. 광고비는 운영비, 고객 택배비는 배송 월, 박스·스티커는 포장재로 설정하세요. 상품 확보 원가만 기존 원가 배분 방식을 사용합니다.</p><div class="table-wrap"><table><thead><tr><th>비용 기록</th><th>처리 방식</th><th>귀속월</th><th>포장재 구매 수량</th><th></th></tr></thead><tbody id="financeCostRows"></tbody></table></div></details>
         <details class="panel"><summary>판매처·수수료 확인 및 정정</summary><p class="finance-help">쿠팡 12%, 스마트스토어 5% · 할인 후 상품금액 + 받은 배송비 기준입니다. 실제 정산 수수료를 입력하면 자동 계산을 대체합니다. 주문 입력이 비어 있는 과거 판매는 판매처를 지정해 주세요.</p><select id="financeSaleFilter" aria-label="수수료 확인 목록"><option value="pending">판매처·수수료 미확인만</option><option value="all">전체 판매</option></select><div class="table-wrap"><table><thead><tr><th>판매 기록</th><th>판매처</th><th>수수료 방식</th><th>실제 수수료</th><th></th></tr></thead><tbody id="financeSaleRows"></tbody></table></div></details>
-        <details class="panel"><summary>포장재 재고·사용량 기록</summary><p class="finance-help">구매액은 현금 지출 참고액에, 사용액은 사용 날짜의 운영비에 반영됩니다. 주문당 한 번 또는 월 사용량 합계로 기록하세요. 같은 사용을 주문별·월별로 중복 등록하지 마세요.</p><div class="table-wrap"><table><thead><tr><th>포장재 구매</th><th>구매</th><th>사용</th><th>남은 수량</th><th>단가</th></tr></thead><tbody id="packagingStockRows"></tbody></table></div><form id="packagingUsageForm" class="form-grid"><input name="date" type="date" required><select name="costId" required aria-label="사용한 포장재 구매 기록"></select><input name="quantity" type="number" min="1" step="1" placeholder="사용 수량" required><input name="orderRef" placeholder="고유 주문번호 (선택)"><input name="note" placeholder="사용 메모 / 월 합계"><button type="submit" class="primary-button">사용 기록 추가</button></form><div class="table-wrap"><table><thead><tr><th>사용일</th><th>포장재</th><th>수량</th><th>주문·메모</th><th></th></tr></thead><tbody id="packagingUseRows"></tbody></table></div></details>
-        <details class="panel"><summary>실제 통장 입출금 기록</summary><p class="finance-help">정산 입금·매입 결제·택배비·포장재 구매 등 통장에서 실제 움직인 돈만 기록하세요. 이 기록은 현금 수지에만 반영되므로 판매이익·운영이익에서 중복 차감되지 않습니다. 매출 발생일을 입금일로 가정하지 않습니다.</p><form id="cashEntryForm" class="form-grid"><input name="date" type="date" required><select name="direction" aria-label="입출금 구분"><option value="out">실제 출금</option><option value="in">실제 입금</option></select><input name="amount" type="number" min="1" step="0.01" placeholder="실제 금액" required><input name="note" placeholder="정산/매입/택배비 등 메모"><button type="submit" class="primary-button">입출금 기록 추가</button></form><div class="table-wrap"><table><thead><tr><th>실제 날짜</th><th>구분</th><th>금액</th><th>메모</th><th></th></tr></thead><tbody id="cashRows"></tbody></table></div></details>
+        <details class="panel" hidden><summary>이전 포장재 기록 (참고용)</summary><p class="finance-help">이전 포장재 사용 기록은 보관만 하며 순이익에서 추가 차감하지 않습니다.</p><div class="table-wrap"><table><thead><tr><th>포장재 구매</th><th>구매</th><th>사용</th><th>남은 수량</th><th>단가</th></tr></thead><tbody id="packagingStockRows"></tbody></table></div><form id="packagingUsageForm" class="form-grid"><input name="date" type="date" required><select name="costId" required aria-label="사용한 포장재 구매 기록"></select><input name="quantity" type="number" min="1" step="1" placeholder="사용 수량" required><input name="orderRef" placeholder="고유 주문번호 (선택)"><input name="note" placeholder="사용 메모 / 월 합계"><button type="submit" class="primary-button">사용 기록 추가</button></form><div class="table-wrap"><table><thead><tr><th>사용일</th><th>포장재</th><th>수량</th><th>주문·메모</th><th></th></tr></thead><tbody id="packagingUseRows"></tbody></table></div></details>
+        <details class="panel"><summary>실제 통장 입출금 기록</summary><p class="finance-help">정산 입금·매입 결제·택배비·포장재 구매 등 통장에서 실제 움직인 돈만 기록하세요. 이 기록은 현금 수지에만 반영되므로 판매이익·최종 순이익에서 중복 차감되지 않습니다. 매출 발생일을 입금일로 가정하지 않습니다.</p><form id="cashEntryForm" class="form-grid"><input name="date" type="date" required><select name="direction" aria-label="입출금 구분"><option value="out">실제 출금</option><option value="in">실제 입금</option></select><input name="amount" type="number" min="1" step="0.01" placeholder="실제 금액" required><input name="note" placeholder="정산/매입/택배비 등 메모"><button type="submit" class="primary-button">입출금 기록 추가</button></form><div class="table-wrap"><table><thead><tr><th>실제 날짜</th><th>구분</th><th>금액</th><th>메모</th><th></th></tr></thead><tbody id="cashRows"></tbody></table></div></details>
       </section>
       </section>
 
@@ -238,7 +235,7 @@
             <input name="discount" type="number" min="0" step="1" placeholder="총 할인">
             <input name="shippingIncome" type="number" min="0" step="1" placeholder="고객에게 받은 배송비 (미입력=무료배송)">
             <input name="unusedShipping" disabled type="number" min="0" step="1" placeholder="실제 택배비는 비용에서 월별 등록">
-            <input name="unusedPacking" disabled type="number" min="0" step="1" placeholder="포장비는 사용량으로 별도 등록">
+            <input name="unusedPacking" disabled type="number" min="0" step="1" placeholder="포장비는 비용에 등록">
             <select name="feeMode" aria-label="수수료 계산"><option value="auto">수수료 자동 계산</option><option value="manual">실제 정산 수수료 직접 입력</option></select><input name="platformFee" type="number" min="0" step="1" placeholder="플랫폼/결제 수수료">
             <button class="primary-button" type="submit">판매 추가</button>
           </form>

@@ -99,23 +99,8 @@ async function ensureAccess() {
 }
 
 function allocatedCostsByProduct(source=state) {
-  const map = Object.fromEntries(source.products.map((product) => [product.id, 0]));
-  const qty = {}; const value = {};
-  source.purchases.forEach((purchase) => {
-    qty[purchase.productId] = (qty[purchase.productId] || 0) + purchase.quantity;
-    value[purchase.productId] = (value[purchase.productId] || 0) + purchaseTotal(purchase);
-  });
-  const totalQty = Object.values(qty).reduce((sum, item) => sum + item, 0);
-  const totalValue = Object.values(value).reduce((sum, item) => sum + item, 0);
-  source.costs.filter(cost=>Finance.costInfo(state,cost).kind==='inventory').forEach((cost) => {
-    if (cost.allocation === 'business') return;
-    if (cost.allocation === 'product' && map[cost.productId] !== undefined) { map[cost.productId] += cost.amount; return; }
-    source.products.forEach((product) => {
-      if (cost.allocation === 'allQty' && totalQty > 0) map[product.id] += cost.amount * ((qty[product.id] || 0) / totalQty);
-      if (cost.allocation === 'allValue' && totalValue > 0) map[product.id] += cost.amount * ((value[product.id] || 0) / totalValue);
-    });
-  });
-  return map;
+  // Costs are deducted once as monthly expenses, never capitalized into product cost.
+  return Object.fromEntries(source.products.map(product=>[product.id,0]));
 }
 function finishedStocktake(a) {
   if (a.reason !== '완제품 실사') return null;
@@ -204,8 +189,8 @@ function renderCostEditRow(c) {
     <td><div class="stack-inputs"><input class="inline-input" name="name" value="${escapeHtml(c.name)}" placeholder="비용명" required><input class="inline-input" name="memo" value="${escapeHtml(c.memo || '')}" placeholder="메모"></div></td>
     <td><select class="inline-select" name="category">${costCategoryOptions(c.category)}</select></td>
     <td>
-      <select class="inline-select" name="allocation">${costAllocationOptions(c.allocation)}</select>
-      <select class="inline-select" name="productId">${productOptions(c.productId, singleProducts())}</select>
+      <input type="hidden" name="allocation" value="${escapeHtml(c.allocation)}"><input type="hidden" name="productId" value="${escapeHtml(c.productId||'')}">
+      입력 날짜의 월에 전액 차감
     </td>
     <td><input class="inline-input compact" name="amount" type="number" min="0" step="1" value="${toNum(c.amount)}" required></td>
     <td><div class="row-actions"><button class="primary-button" data-save-cost-id="${c.id}">저장</button><button class="cancel-button" data-cancel-cost-edit>취소</button></div></td>
@@ -328,8 +313,8 @@ function renderSaleEditRow(s) {
       <input class="inline-input compact" name="shippingIncome" type="number" min="0" step="1" value="${toNum(s.shippingIncome)}" placeholder="받은 배송비">
     </td>
     <td>
-      <input class="inline-input compact" name="shippingCost" type="number" min="0" step="1" value="${toNum(s.shippingCost)}" placeholder="실제 택배비">
-      <input class="inline-input compact" name="packingCost" type="number" min="0" step="1" value="${toNum(s.packingCost)}" placeholder="포장비">
+      <input class="inline-input compact" name="shippingCost" type="hidden" min="0" step="1" value="${toNum(s.shippingCost)}" placeholder="실제 택배비">
+      <input class="inline-input compact" name="packingCost" type="hidden" min="0" step="1" value="${toNum(s.packingCost)}" placeholder="포장비">
       <input class="inline-input compact" name="platformFee" type="number" min="0" step="1" value="${fee.manual?fee.amount:0}" placeholder="실제 수수료"><select name="feeMode" aria-label="수수료 방식">${financeOptions([['auto','자동 계산'],['manual','실제 정산 금액']],fee.manual?'manual':'auto')}</select>
     </td>
     <td><div class="row-actions"><button class="primary-button" data-save-sale-id="${s.id}">저장</button><button class="cancel-button" data-cancel-sale-edit>취소</button></div></td>
@@ -487,14 +472,14 @@ function renderMonthlyChart() {
   const bars = months.map((mk) => {
     const rH=Math.abs(rev[mk])/scale*100,pH=Math.abs(prof[mk])/scale*100;
     const active = mk === selectedChartMonth ? ' active' : '';
-    return `<div class="chart-col${active}" data-month="${mk}" role="button" tabindex="0" title="${Number(mk.slice(5))}월 · 매출 ${money(rev[mk])} · 운영이익 ${money(prof[mk])} (클릭하면 상세)"><div class="chart-bars finance-chart-bars"><div class="finance-zero" style="bottom:${zero}%"></div><div class="bar rev" style="height:${rH}%;bottom:${rev[mk]>=0?zero:zero-rH}%"></div><div class="bar prof ${prof[mk]<0?'negative':''}" style="height:${pH}%;bottom:${prof[mk]>=0?zero:zero-pH}%"></div></div><span class="chart-x">${Number(mk.slice(5))}월</span></div>`;
+    return `<div class="chart-col${active}" data-month="${mk}" role="button" tabindex="0" title="${Number(mk.slice(5))}월 · 매출 ${money(rev[mk])} · 최종 순이익 ${money(prof[mk])} (클릭하면 상세)"><div class="chart-bars finance-chart-bars"><div class="finance-zero" style="bottom:${zero}%"></div><div class="bar rev" style="height:${rH}%;bottom:${rev[mk]>=0?zero:zero-rH}%"></div><div class="bar prof ${prof[mk]<0?'negative':''}" style="height:${pH}%;bottom:${prof[mk]>=0?zero:zero-pH}%"></div></div><span class="chart-x">${Number(mk.slice(5))}월</span></div>`;
   }).join('');
   el.innerHTML = `<div class="chart-bars-row">${bars}</div><div id="monthlyDetail" class="chart-detail"></div>`;
   renderMonthlyDetail(selectedChartMonth);
 }
 function renderMonthlyDetail(mk) {
   const box = $('#monthlyDetail'); if (!box) return;
-  if (!mk) { box.innerHTML = '<span class="chart-hint">막대(월)를 클릭하면 그 달의 매출·운영이익과 많이 팔린 상품이 여기에 나옵니다.</span>'; return; }
+  if (!mk) { box.innerHTML = '<span class="chart-hint">막대(월)를 클릭하면 그 달의 매출·최종 순이익과 많이 팔린 상품이 여기에 나옵니다.</span>'; return; }
   const { statsMap } = totals();
   const sales = state.sales.filter((s) => monthKey(s.date) === mk);
   const rev = sales.reduce((a, s) => a + saleResult(s, statsMap).netRevenue, 0);
@@ -505,7 +490,7 @@ function renderMonthlyDetail(mk) {
   const detailFinance=Finance.report(state,statsMap,mk+'-01',mk+'-31',purchaseTotal);
   const label = `${Number(mk.slice(5))}월`;
   const rows = top.length ? top.map(([pid, v]) => `<tr><td>${productName(pid)}</td><td>${number(v.qty)}개</td><td class="${v.profit < 0 ? 'money-bad' : ''}">${money(v.profit)}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">이 달은 판매가 없습니다.</td></tr>';
-  box.innerHTML = `<div class="chart-detail-head"><strong>${label}</strong> · 매출 <strong>${money(rev)}</strong> · 판매이익 <strong>${money(prof)}</strong> · 월 운영이익 <strong>${money(detailFinance.operatingProfit)}</strong> · 판매 ${sales.length}건</div><div class="table-wrap"><table><thead><tr><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  box.innerHTML = `<div class="chart-detail-head"><strong>${label}</strong> · 매출 <strong>${money(rev)}</strong> · 판매이익 <strong>${money(prof)}</strong> · 월 최종 순이익 <strong>${money(detailFinance.operatingProfit)}</strong> · 판매 ${sales.length}건</div><div class="table-wrap"><table><thead><tr><th>상품</th><th>수량</th><th>순이익</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function renderBestseller(period) {
   const { statsMap } = totals();
@@ -568,16 +553,17 @@ function renderDashboard() {
   const periodSales = state.sales.filter((s) => inRange(s.date, from, to));
   const pRevenue = periodSales.reduce((acc, s) => acc + saleResult(s, statsMap).netRevenue, 0);
   const pProfit = periodSales.reduce((acc, s) => acc + saleResult(s, statsMap).profit, 0);
-  renderFinanceSummary(Finance.report(state,statsMap,from,to,purchaseTotal));
+  const report=Finance.report(state,statsMap,from,to,purchaseTotal);
+  renderFinanceSummary(report);
   $('#metricInvestment').textContent = money(sum.investment);
   $('#metricInventoryValue').textContent = money(sum.inventoryValue);
   $('#metricRevenue').textContent = money(pRevenue);
-  $('#metricProfit').textContent = money(pProfit);
+  $('#metricProfit').textContent = money(report.netProfit);
   $('#metricQuantity').textContent = `${number(periodSales.reduce((n,s)=>n+s.quantity,0))}개`;
   renderDashboardFocus(sum.stats);
   const label = periodLabel(dashboardPeriod);
   $('#metricRevenueLabel').textContent = `${label} 매출`;
-  $('#metricProfitLabel').textContent = `${label} 판매이익`;
+  $('#metricProfitLabel').textContent = `${label} 최종 순이익`;
   $('#metricQuantityLabel').textContent = `${label} 판매 수량`;
   $$('#periodBar .chip').forEach((c) => c.classList.toggle('active', c.dataset.period === dashboardPeriod));
   renderMonthlyChart();
@@ -655,7 +641,7 @@ function renderCosts() {
   $('#costCount').textContent = list.length !== state.costs.length ? `${list.length}건 / 전체 ${state.costs.length}건` : `${state.costs.length}건`;
   $('#costRows').innerHTML = list.length ? list.map((c) => {
     if (String(c.id) === String(editingCostId)) return renderCostEditRow(c);
-    return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.memo || '-')}</small></td><td>${escapeHtml(c.category)}</td><td>${({shipping:'월 택배비',operating:'월 운영비',packaging:'포장재 구매 · 사용량 차감',inventory:'상품 확보 원가'})[Finance.costInfo(state,c).kind]}<small>${Finance.costInfo(state,c).month}${Finance.costInfo(state,c).kind==='inventory'?' · '+labels[c.allocation]:''}</small></td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
+    return `<tr><td>${dateFormatter.format(new Date(c.date))}</td><td><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.memo || '-')}</small></td><td>${escapeHtml(c.category)}</td><td>월 운영비 · 전액 차감<small>${escapeHtml(String(c.date).slice(0,7))}</small></td><td>${money(c.amount)}</td><td>${costActionButtons(c.id)}</td></tr>`;
   }).join('') : emptyRow(6, state.costs.length ? '조건에 맞는 비용 내역이 없습니다.' : '아직 입력된 내용이 없습니다.');
 }
 function renderSales() {

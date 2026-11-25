@@ -8,13 +8,13 @@ const state=()=>({products:[],purchases:[],sales:[],costs:[
  {id:'inventory',date:'2026-11-02',name:'수입운임',amount:50000},
  {id:'old',date:'2026-10-02',name:'광고비',amount:60000}
 ],finance:{costs:{other:{kind:'operating',month:'2026-11'}}}});
-test('detail uses the same attribution months and classifications as the operating total',()=>{
+test('detail includes every cost by entered date, irrespective of classification or month override',()=>{
  const s=state(),r=Finance.report(s,{},'2026-11-01','2026-11-30');
- assert.deepEqual(r.operatingCosts.map(c=>c.id),['ad','other']);
+ assert.deepEqual(r.operatingCosts.map(c=>c.id),['ad','shipping','pack','inventory']);
  assert.equal(r.operatingCosts.reduce((n,c)=>n+Number(c.amount),0),r.operating);
- assert.equal(r.operating,30000);assert.equal(r.operatingCosts[1].date,'2026-12-03');assert.equal(r.operatingCosts[1].month,'2026-11');
- assert.equal(Finance.report(s,{},'2026-12-01','2026-12-31').operatingCosts.length,0);
- assert.equal(Finance.report(s,{}).operatingCosts.length,3);assert.equal(s.costs[1].month,undefined);
+ assert.equal(r.operating,130000);assert.equal(r.operatingCosts[1].date,'2026-11-02');assert.equal(r.operatingCosts[1].month,'2026-11');
+ assert.equal(Finance.report(s,{},'2026-12-01','2026-12-31').operatingCosts.length,1);
+ assert.equal(Finance.report(s,{}).operatingCosts.length,6);assert.equal(s.costs[1].month,undefined);
 });
 function ui(){
  const nodes=new Map(),node=key=>{if(!nodes.has(key))nodes.set(key,{textContent:'',innerHTML:'',hidden:true,attrs:{'aria-expanded':'false'},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k];},addEventListener(k,f){this[k]=f;}});return nodes.get(key);};
@@ -29,5 +29,5 @@ test('click expands/collapses, period changes refresh an open detail, and user t
  u.node('#financeOperatingToggle').click();assert.equal(u.node('#operatingCostDetail').hidden,false);assert.equal(u.node('#financeOperatingToggle').attrs['aria-expanded'],'true');
  u.render(Finance.report(s,{},'2026-10-01','2026-10-31'));assert.equal(u.node('#operatingCostSummary').textContent,'1건 · 합계 ₩60000');assert(!u.node('#operatingCostRows').innerHTML.includes('검색 광고'));assert.equal(u.node('#operatingCostDetail').hidden,false);
  u.node('#financeOperatingToggle').click();assert.equal(u.node('#operatingCostDetail').hidden,true);
- u.render(Finance.report(s,{},'2026-12-01','2026-12-31'));assert.match(u.node('#operatingCostRows').innerHTML,/집계된 지출이 없습니다/);
+ u.render(Finance.report(s,{},'2027-01-01','2027-01-31'));assert.match(u.node('#operatingCostRows').innerHTML,/집계된 지출이 없습니다/);
 });
