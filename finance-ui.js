@@ -4,6 +4,21 @@ function renderFinanceSummary(r){
  for(const [id,value] of Object.entries({financeCashIn:r.cashIn,financeCashOut:r.cashOut,financeCashNet:r.cashNet}))$('#'+id).textContent=r.cashCount?money(value):'미등록';
  $('#financeOperatingProfit').className=r.operatingProfit<0?'money-bad':'money-good';
  $('#financeWarnings').innerHTML=r.warnings.length?`<strong>잠정 집계 · 확인 필요</strong><ul>${r.warnings.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:'등록된 항목 기준 집계입니다. 세금 및 누락된 비용은 포함하지 않습니다.';
+ renderOperatingCosts(r);
+}
+function renderOperatingCosts(r){
+ const rows=[...(r.operatingCosts||[])].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ $('#operatingCostSummary').textContent=`${rows.length}건 · 합계 ${money(r.operating)}`;
+ $('#operatingCostRows').innerHTML=rows.map(c=>`<tr><td>${escapeHtml(c.date)}</td><td>${escapeHtml(c.month)}</td><td><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.category||'기타')}</small></td><td class="operating-cost-memo">${escapeHtml(c.memo||'—')}</td><td class="operating-cost-amount">${money(c.amount)}</td></tr>`).join('')||emptyRow(5,'선택한 기간에 기타 운영비로 집계된 지출이 없습니다.');
+}
+function bindOperatingCosts(){
+ const toggle=$('#financeOperatingToggle'),detail=$('#operatingCostDetail');
+ toggle.addEventListener('click',()=>{
+  const expanded=toggle.getAttribute('aria-expanded')!=='true';
+  toggle.setAttribute('aria-expanded',String(expanded));
+  detail.hidden=!expanded;
+  $('#operatingCostToggleLabel').textContent=expanded?'내역 접기 ▴':'지출 내역 보기 ▾';
+ });
 }
 function renderFinanceTools(){
  const kinds=[['operating','운영비 (해당 월 전액)'],['shipping','고객 발송 택배비'],['packaging','포장재 구매 (사용량 차감)'],['inventory','상품 확보 원가 (수입 운임 등)']];

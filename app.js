@@ -714,6 +714,7 @@ function bindForms() { $$('form input[type="date"]').forEach((input) => { input.
 function seedDemo() { return { settings: { defaultRate: 190 }, products: [{ id: 'P-001', code: 'CK-001', name: '콕링 실버', option: '기본', supplier: '1688', salePrice: 15900, reorderLevel: 20 }, { id: 'P-002', code: 'CK-002', name: '콕링 블랙', option: '무광', supplier: 'Taobao', salePrice: 16900, reorderLevel: 15 }], purchases: [], costs: [], sales: [], adjustments: [] }; }
 function download(filename, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 function bindActions() {
+  bindOperatingCosts();
   const feeForm=$('#saleForm'),syncFee=()=>{feeForm.querySelector('[name="platformFee"]').disabled=feeForm.querySelector('[name="feeMode"]').value!=='manual';};
   syncFee();feeForm.querySelector('[name="feeMode"]').addEventListener('change',()=>{syncFee();updateSalePreview();});
   for(const [formId,kind] of [['packagingUsageForm','usage'],['cashEntryForm','cash']]){

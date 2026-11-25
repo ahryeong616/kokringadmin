@@ -67,7 +67,12 @@
         </div>
         <section class="panel finance-summary">
           <div class="panel-header"><h3>판매이익 → 월 운영이익</h3><span>선택 기간 · 고객 발송비와 포장재 사용비는 여기서 차감</span></div>
-          <div class="finance-breakdown"><div><span>판매이익</span><strong id="financeSalesProfit">0원</strong></div><div><span>− 해당 월 택배비</span><strong id="financeShipping">0원</strong></div><div><span>− 사용한 포장재</span><strong id="financePacking">0원</strong></div><div><span>− 기타 운영비</span><strong id="financeOperating">0원</strong></div><div class="finance-total"><span>월 운영이익</span><strong id="financeOperatingProfit">0원</strong></div></div>
+          <div class="finance-breakdown"><div><span>판매이익</span><strong id="financeSalesProfit">0원</strong></div><div><span>− 해당 월 택배비</span><strong id="financeShipping">0원</strong></div><div><span>− 사용한 포장재</span><strong id="financePacking">0원</strong></div><div><button type="button" id="financeOperatingToggle" class="finance-expense-toggle" aria-expanded="false" aria-controls="operatingCostDetail"><span>− 기타 운영비</span><strong id="financeOperating">0원</strong><span id="operatingCostToggleLabel" class="expense-toggle-label">지출 내역 보기 ▾</span></button></div><div class="finance-total"><span>월 운영이익</span><strong id="financeOperatingProfit">0원</strong></div></div>
+          <section id="operatingCostDetail" class="operating-cost-detail" aria-labelledby="operatingCostTitle" hidden>
+            <div class="panel-header"><h4 id="operatingCostTitle">기타 운영비 지출 내역</h4><span id="operatingCostSummary"></span></div>
+            <p>대시보드에서 선택한 기간의 비용 귀속월 기준입니다. 등록일이 다른 비용도 해당 귀속월에 포함됩니다.</p>
+            <div class="table-wrap"><table><thead><tr><th>등록일</th><th>비용 귀속월</th><th>사용 항목 / 구분</th><th>메모</th><th class="operating-cost-amount">금액</th></tr></thead><tbody id="operatingCostRows"></tbody></table></div>
+          </section>
           <div class="finance-cash"><span>입출금 기록 기준 · 실제 입금 <strong id="financeCashIn">미등록</strong></span><span>실제 출금 <strong id="financeCashOut">미등록</strong></span><span>현금 수지 <strong id="financeCashNet">미등록</strong></span><span>참고: 매입·비용 등록액 <strong id="financeRecordedSpending">0원</strong></span></div>
           <div id="financeWarnings" class="finance-warnings" role="status"></div>
         </section>

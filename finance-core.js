@@ -13,7 +13,8 @@
   const shippingMonths=new Set(s.costs.filter(c=>costInfo(s,c).kind==='shipping').map(c=>costInfo(s,c).month));const usageMonths=new Set(Object.values(s.finance?.usage||{}).map(u=>u.date.slice(0,7)));
   const shippingLedger=selected.filter(c=>costInfo(s,c).kind==='shipping').reduce((a,c)=>a+n(c.amount),0),shippingLegacy=sales.filter(x=>!shippingMonths.has(x.date.slice(0,7))).reduce((a,x)=>a+n(x.shippingCost),0);
   const packs=packaging(s),packingUsage=packs.reduce((a,p)=>a+p.rows.filter(u=>inside(u.date,from,to)).reduce((b,u)=>b+n(u.quantity)*p.unitCost,0),0),packingLegacy=sales.filter(x=>!usageMonths.has(x.date.slice(0,7))).reduce((a,x)=>a+n(x.packingCost),0);
-  const operating=selected.filter(c=>costInfo(s,c).kind==='operating').reduce((a,c)=>a+n(c.amount),0),salesProfit=results.reduce((a,r)=>a+r.profit,0),shipping=shippingLedger+shippingLegacy,packing=packingUsage+packingLegacy;
+  const operatingCosts=selected.filter(c=>costInfo(s,c).kind==='operating').map(c=>({...c,month:costInfo(s,c).month}));
+  const operating=operatingCosts.reduce((a,c)=>a+n(c.amount),0),salesProfit=results.reduce((a,r)=>a+r.profit,0),shipping=shippingLedger+shippingLegacy,packing=packingUsage+packingLegacy;
   const cash=Object.values(s.finance?.cash||{}).filter(c=>inside(c.date,from,to));const cashIn=cash.filter(c=>c.direction==='in').reduce((a,c)=>a+n(c.amount),0),cashOut=cash.filter(c=>c.direction==='out').reduce((a,c)=>a+n(c.amount),0);
   const warnings=[];const unknown=results.filter(r=>r.feeInfo.unknown).length;if(unknown)warnings.push(`판매처·수수료 미확인 ${unknown}건`);
   const noCost=results.filter(r=>r.cogs===0).length;if(noCost)warnings.push(`판매 당시 원가 미확인 ${noCost}건`);
@@ -21,7 +22,7 @@
   if(packs.length&&!Object.keys(s.finance?.usage||{}).length)warnings.push('포장재 사용 내역 미등록');
   const months=[...new Set(sales.map(x=>x.date.slice(0,7)))];const noShipping=months.filter(m=>!shippingMonths.has(m)&&!sales.some(x=>x.date.startsWith(m)&&n(x.shippingCost)>0));if(noShipping.length)warnings.push(`택배비 미등록: ${noShipping.join(', ')}`);
   if(!cash.length)warnings.push('실제 입출금 미등록: 현금 수지는 아직 확인할 수 없습니다.');
-  return {revenue:results.reduce((a,r)=>a+r.netRevenue,0),cogs:results.reduce((a,r)=>a+r.cogs,0),fees:results.reduce((a,r)=>a+r.fee,0),salesProfit,shipping,packing,operating,operatingProfit:salesProfit-shipping-packing-operating,cashIn,cashOut,cashNet:cashIn-cashOut,cashCount:cash.length,recordedSpending:s.purchases.filter(p=>inside(p.date,from,to)).reduce((a,p)=>a+purchaseTotal(p),0)+s.costs.filter(c=>inside(c.date,from,to)).reduce((a,c)=>a+n(c.amount),0),warnings};
+  return {revenue:results.reduce((a,r)=>a+r.netRevenue,0),cogs:results.reduce((a,r)=>a+r.cogs,0),fees:results.reduce((a,r)=>a+r.fee,0),salesProfit,shipping,packing,operating,operatingCosts,operatingProfit:salesProfit-shipping-packing-operating,cashIn,cashOut,cashNet:cashIn-cashOut,cashCount:cash.length,recordedSpending:s.purchases.filter(p=>inside(p.date,from,to)).reduce((a,p)=>a+purchaseTotal(p),0)+s.costs.filter(c=>inside(c.date,from,to)).reduce((a,c)=>a+n(c.amount),0),warnings};
  }
  return {rates,channel,costInfo,fee,saleResult,packaging,report};
 });
